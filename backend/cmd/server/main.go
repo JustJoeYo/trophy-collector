@@ -11,10 +11,11 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    slog.SetDefault(logger)
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
+    cfg := config.Load()
+
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
