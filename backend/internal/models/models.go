@@ -20,7 +20,7 @@ type Match struct {
 }
 
 type Hero struct {
-    HeroID   uint32 `json:"hero_id"`
-    Name     string `json:"name"`
-    ImageURL string `json:"images.icon_hero_card"`
+    HeroID    uint32 `json:"id"`
+    ClassName string `json:"class_name"`
+    Name      string `json:"name"`
 }

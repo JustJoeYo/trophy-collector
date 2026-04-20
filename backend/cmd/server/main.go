@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/JustJoeYo/trophy-collector/internal/api"
+	"github.com/JustJoeYo/trophy-collector/internal/cache"
+	"github.com/JustJoeYo/trophy-collector/internal/clients"
 	"github.com/JustJoeYo/trophy-collector/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,24 +19,22 @@ func main() {
 
     cfg := config.Load()
 
+    deadlockClient := clients.NewDeadlockClient(cfg.DeadlockAPIURL, cfg.AssetsURL)
+    redisCache := cache.NewRedisCache(cfg.RedisAddr)
+    handler := api.NewHandler(deadlockClient, redisCache)
 
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+    r := chi.NewRouter()
+    r.Use(middleware.RequestID)
+    r.Use(middleware.Logger)
+    r.Use(middleware.Recoverer)
+    r.Use(corsMiddleware)
 
-	r.Use(corsMiddleware)
+    handler.RegisterRoutes(r)
 
-	// Routes
-	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request){
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
-	})
-
-	slog.Info("server starting", "port", cfg.Port)
-	http.ListenAndServe(":"+cfg.Port, r)
+    slog.Info("server starting", "port", cfg.Port)
+    http.ListenAndServe(":"+cfg.Port, r)
 }
+
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
