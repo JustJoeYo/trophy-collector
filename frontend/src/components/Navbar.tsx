@@ -14,7 +14,7 @@ export default function Navbar() {
                             <NavLink to="/player">Player</NavLink>
                         </li>
                         <li>
-                            <NavLink to="/hero">Hero</NavLink>
+                            <NavLink to="/heroes">Heroes</NavLink>
                         </li>
                     </ul>
                 </nav>

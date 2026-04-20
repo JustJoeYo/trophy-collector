@@ -1,67 +1,51 @@
 import {useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Player, Match, Hero } from '@/types'
 
-type HeroStat = {
-    name: string
-    wins: number
-    losses: number
-}
-
-type MatchStat = {
-    hero: string
-    outcome: 'Win' | 'Loss'
-    kills: number
-    deaths: number
-    assists: number
-}
-
-
-export type Player = {
-    id: string
-    steamID: string
-    name: string
-    wins: number
-    losses: number
-    heroes: HeroStat[]
-    matches: MatchStat[]
-}
+const SAMPLE_HEROES: Hero[] = [
+    { hero_id: 1, name: 'Infernus', image_url: '' },
+    { hero_id: 2, name: 'McGinnis', image_url: '' },
+    { hero_id: 3, name: 'Seven', image_url: '' },
+    { hero_id: 4, name: 'Bebop', image_url: '' },
+]
 
 const SAMPLE_PLAYERS: Player[] = [
     {
-        id: '1',
-        steamID: '76561198000000001',
-        name: 'Test Player',
+        account_id: '76561198000000001',
+        player_name: 'Test Player',
+        avatar_url: '',
         wins: 42,
         losses: 20,
-        heroes: [
-            { name: 'Infernus', wins: 10, losses: 4 },
-            { name: 'McGinnis', wins: 8, losses: 6 },
-        ],
-        matches: [
-            { hero: 'Infernus', outcome: 'Win', kills: 15, deaths: 5, assists: 8 },
-            { hero: 'McGinnis', outcome: 'Loss', kills: 5, deaths: 9, assists: 11 },
-        ],
     },
     {
 
-        id: '2',
-        steamID: '76561198000000002',
-        name: 'Nova',
+        account_id: '76561198000000002',
+        player_name: 'Nova',
+        avatar_url: '',
         wins: 31,
         losses: 27,
-        heroes: [{ name: 'Seven', wins: 14, losses: 9 }],
-        matches: [{ hero: 'Seven', outcome: 'Win', kills: 10, deaths: 4, assists: 7 }],
     },
     {
-        id: '3',
-        steamID: '76561198000000003',
-        name: 'Tyler',
+        account_id: '76561198000000003',
+        player_name: 'Tyler',
+        avatar_url: '',
         wins: 28,
         losses: 30,
-        heroes: [{ name: 'Bebop', wins: 11, losses: 12 }],
-        matches: [{ hero: 'Bebop', outcome: 'Loss', kills: 6, deaths: 8, assists: 5 }],
     },
 ]
+
+const SAMPLE_MATCHES: Record<string, Match[]> = {
+    '76561198000000001': [
+        { match_id: 1, hero_id: 1, outcome: 'Win', kills: 12, deaths: 3, assists: 8, duration_secs: 2400 },
+        { match_id: 2, hero_id: 2, outcome: 'Loss', kills: 5, deaths: 9, assists: 11, duration_secs: 1800 },
+    ],
+    '76561198000000002': [
+        { match_id: 3, hero_id: 3, outcome: 'Win', kills: 10, deaths: 4, assists: 7, duration_secs: 2350 },
+    ],
+    '76561198000000003': [
+        { match_id: 4, hero_id: 4, outcome: 'Loss', kills: 6, deaths: 8, assists: 5, duration_secs: 1950 },
+    ],
+}
 
 function PlayerMatchesQuery(player: Player, query: string) {
     const normalizedQuery = query.toLowerCase()
@@ -71,24 +55,15 @@ function PlayerMatchesQuery(player: Player, query: string) {
     }
 
     const searchableText = [
-        player.id,
-        player.steamID,
-        player.name,
+        player.account_id,
+        player.player_name,
         String(player.wins),
         String(player.losses),
-        ...player.heroes.flatMap((hero) => [hero.name, String(hero.wins), String(hero.losses)]),
-        ...player.matches.flatMap((match) => [
-            match.hero,
-            match.outcome,
-            String(match.kills),
-            String(match.deaths),
-            String(match.assists),
-        ]),
     ]
         .join(' ')
         .toLowerCase()
 
-return searchableText.includes(normalizedQuery)
+    return searchableText.includes(normalizedQuery)
 }
 
 export default function PlayerSearch() {
@@ -106,18 +81,20 @@ export default function PlayerSearch() {
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, hero, stats..."
+                placeholder="Search by SteamID or Player name"
             />
             
             <ul>
                 {filteredPlayers.map((player) => (
-                    <li key={player.id}>
-                        <strong>{player.name}</strong> - {player.steamID} - {player.wins}W / {player.losses}L
+                    <li key={player.account_id}>
+                        <strong>{player.player_name}</strong> - {player.account_id} - {player.wins}W / {player.losses}L
                         {' '}
-                        <Link to={`/player/${player.id}`}>View profile</Link>
+                        <Link to={`/player/${player.account_id}`}>View profile</Link>
                     </li>
                 ))}
             </ul>
         </section>
     )
 }
+
+export { SAMPLE_HEROES, SAMPLE_MATCHES, SAMPLE_PLAYERS }
