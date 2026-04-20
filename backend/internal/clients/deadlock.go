@@ -20,17 +20,18 @@ type DeadlockClient interface {
 
 type deadlockClient struct {
     baseURL    string
+    assetsURL  string
     httpClient *http.Client
 }
 
-func NewDeadlockClient(baseURL string) DeadlockClient {
+func NewDeadlockClient(baseURL string, assetsURL string) DeadlockClient {
     return &deadlockClient{
-        baseURL: baseURL,
-        httpClient: &http.Client{
-            Timeout: 10 * time.Second,
-        },
+        baseURL:    baseURL,
+        assetsURL:  assetsURL,
+        httpClient: &http.Client{Timeout: 10 * time.Second},
     }
 }
+
 
 func (c *deadlockClient) fetch(ctx context.Context, url string, target interface{}) error {
     req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -79,7 +80,7 @@ func (c *deadlockClient) GetPlayerHeroes(ctx context.Context, accountID uint32) 
 }
 
 func (c *deadlockClient) GetHeroes(ctx context.Context) ([]models.Hero, error) {
-    url := fmt.Sprintf("%s/v2/heroes", c.baseURL)
+    url := fmt.Sprintf("%s/v2/heroes", c.assetsURL)
     var heroes []models.Hero
     if err := c.fetch(ctx, url, &heroes); err != nil {
         return nil, fmt.Errorf("GetHeroes: %w", err)

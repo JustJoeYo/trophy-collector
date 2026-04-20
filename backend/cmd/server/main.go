@@ -1,10 +1,17 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/JustJoeYo/trophy-collector/internal/api"
+	"github.com/JustJoeYo/trophy-collector/internal/cache"
+	"github.com/JustJoeYo/trophy-collector/internal/clients"
 	"github.com/JustJoeYo/trophy-collector/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,24 +23,47 @@ func main() {
 
     cfg := config.Load()
 
+    deadlockClient := clients.NewDeadlockClient(cfg.DeadlockAPIURL, cfg.AssetsURL)
+    redisCache := cache.NewRedisCache(cfg.RedisAddr)
+    handler := api.NewHandler(deadlockClient, redisCache)
 
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+    r := chi.NewRouter()
+    r.Use(middleware.RequestID)
+    r.Use(middleware.Logger)
+    r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(30 * time.Second))
+    r.Use(corsMiddleware)
 
-	r.Use(corsMiddleware)
+    handler.RegisterRoutes(r)
 
-	// Routes
-	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request){
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
-	})
+        srv := &http.Server{
+        Addr:    ":" + cfg.Port,
+        Handler: r,
+    }
 
-	slog.Info("server starting", "port", cfg.Port)
-	http.ListenAndServe(":"+cfg.Port, r)
+    go func() {
+        slog.Info("server starting", "port", cfg.Port)
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            slog.Error("server error", "error", err)
+            os.Exit(1)
+        }
+    }()
+
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+
+    slog.Info("shutting down server")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    if err := srv.Shutdown(ctx); err != nil {
+        slog.Error("forced shutdown", "error", err)
+    }
+
+    slog.Info("server stopped")
 }
+
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
