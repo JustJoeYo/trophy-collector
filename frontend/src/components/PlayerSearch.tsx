@@ -9,7 +9,7 @@ export type Player = {
 //Sample set for testing before calling backend API. Not sure if we want to keep id field as string or use steamID, or something similar.
 
 const SAMPLE_PLAYERS: Player[] = [
-    { id: '1', name: 'AceRunner', hero: 'Secen' },
+    { id: '1', name: 'AceRunner', hero: 'Seven' },
     { id: '2', name: "Nova", hero: 'Lady Geist' },
     { id: '3', name: "Tyler", hero: 'Bebop' },
 ]
