@@ -47,7 +47,9 @@ func (h *Handler) GetPlayer (w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(cached))
 		return
-	}
+	} else {
+    slog.Debug("cache miss", "key", cacheKey, "error", err)
+    }
 
 	player, err := h.deadlock.GetPlayer(r.Context(), accountID)
 	if err != nil {
@@ -78,6 +80,8 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         w.Write([]byte(cached))
         return
+    } else {
+    slog.Debug("cache miss", "key", cacheKey, "error", err)
     }
 
 	matches, err := h.deadlock.GetPlayerMatches(r.Context(), accountID)
@@ -109,6 +113,8 @@ func (h *Handler) GetPlayerHeroes(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         w.Write([]byte(cached))
         return
+    } else {
+    slog.Debug("cache miss", "key", cacheKey, "error", err)
     }
 
     heroes, err := h.deadlock.GetPlayerHeroes(r.Context(), accountID)
@@ -132,6 +138,8 @@ func (h *Handler) GetHeroes(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         w.Write([]byte(cached))
         return
+    } else {
+    slog.Debug("cache miss", "key", cacheKey, "error", err)
     }
 
     heroes, err := h.deadlock.GetHeroes(r.Context())
