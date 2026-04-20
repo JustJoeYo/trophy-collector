@@ -5,11 +5,14 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/JustJoeYo/trophy-collector/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
+	cfg := config.Load()
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -27,8 +30,8 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	slog.Info("server starting", "port", 8080)
-	http.ListenAndServe(":8080", r)
+	slog.Info("server starting", "port", cfg.Port)
+	http.ListenAndServe(":"+cfg.Port, r)
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
