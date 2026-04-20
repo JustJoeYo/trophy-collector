@@ -6,7 +6,7 @@ const SAMPLE_HEROES: Hero[] = [
     { hero_id: 1, name: 'Infernus', image_url: '' },
     { hero_id: 2, name: 'McGinnis', image_url: '' },
     { hero_id: 3, name: 'Seven', image_url: '' },
-    { hero_id: 4, name: 'Bebop', image_url: '' },
+    { hero_id: 4, name: 'Bebop', image_url: 'example.com/bebop.jpg' },
 ]
 
 const SAMPLE_PLAYERS: Player[] = [
