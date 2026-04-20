@@ -3,19 +3,20 @@ backend/bin/
 *.exe
 *.test
 *.out
+coverage.out
 
 # Node
 frontend/node_modules/
 frontend/dist/
 frontend/.env
 
-# Environment files — NEVER commit these
+# Environment — NEVER commit real secrets
 .env
 .env.local
 *.env
 
 # Kubernetes secrets
-k8s/secret.yaml
+k8s/**/secret.yaml
 
 # OS
 .DS_Store
@@ -24,3 +25,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.swp

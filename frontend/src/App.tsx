@@ -1,21 +1,18 @@
-import { Routes, Route } from 'react-router-dom'
-import Layout from './components/ui/Layout'
-import HomePage from './pages/HomePage'
-import PlayerPage from './pages/PlayerPage'
-import HeroesPage from './pages/HeroesPage'
-import LeaderboardPage from './pages/LeaderboardPage'
-import NotFoundPage from './pages/NotFoundPage'
+import { useState } from 'react'
 
 export default function App() {
+  const [data, setData] = useState('')
+
+  async function ping() {
+    const res = await fetch('/api/v1/health')
+    setData(JSON.stringify(await res.json(), null, 2))
+  }
+
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/player/:steamId" element={<PlayerPage />} />
-        <Route path="/heroes" element={<HeroesPage />} />
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <div>
+      <h1>trophy-collector</h1>
+      <button onClick={ping}>ping backend</button>
+      <pre>{data}</pre>
+    </div>
   )
 }

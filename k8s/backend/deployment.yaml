@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: trophy-collector
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0       # Zero downtime deploys
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/justjoeyo/trophy-collector-backend:latest
+          ports:
+            - containerPort: 8080
+
+          # Load non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: backend-config
+
+          # Load secrets individually
+          env:
+            - name: STEAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: STEAM_API_KEY
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: REDIS_PASSWORD
+
+          # Resource limits — prevents one pod from starving others
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          # Liveness probe — K8s restarts pod if this fails
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Readiness probe — K8s only sends traffic when this passes
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
