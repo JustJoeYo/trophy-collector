@@ -74,7 +74,8 @@ func (c *deadlockClient) fetch(ctx context.Context, url string, target interface
 }
 
 func (c *deadlockClient) GetPlayerMatches(ctx context.Context, accountID uint32, limit int) ([]models.Match, error) {
-	url := fmt.Sprintf("%s/v1/matches/metadata?account_ids=%d&limit=%d&include_player_info=true", c.baseURL, accountID, limit)
+	minTimestamp := time.Now().AddDate(0, 0, -90).Unix()
+	url := fmt.Sprintf("%s/v1/matches/metadata?account_ids=%d&limit=%d&include_player_info=true&min_unix_timestamp=%d", c.baseURL, accountID, limit, minTimestamp)
 	var matches []models.Match
 	if err := c.fetch(ctx, url, &matches); err != nil {
 		return nil, fmt.Errorf("GetPlayerMatches %d: %w", accountID, err)

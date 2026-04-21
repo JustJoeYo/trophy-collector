@@ -11,7 +11,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		h.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	r.Get("/api/v1/players/{id}/profile", h.GetPlayerProfile)
 	r.Get("/api/v1/players/{id}/matches", h.GetPlayerMatches)
+	r.Get("/api/v1/players/{id}/stats", h.GetPlayerStats)
 	r.Get("/api/v1/players/{id}/metrics", h.GetPlayerMetrics)
 	r.Get("/api/v1/players/{id}/active", h.GetActiveMatches)
 

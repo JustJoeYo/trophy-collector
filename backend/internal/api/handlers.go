@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/JustJoeYo/trophy-collector/internal/cache"
 	"github.com/JustJoeYo/trophy-collector/internal/clients"
+	"github.com/JustJoeYo/trophy-collector/internal/models"
 )
 
 type Handler struct {
@@ -89,7 +91,7 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit := h.parseLimit(r, 10, 50)
-	cacheKey := fmt.Sprintf("matches:%d:%d", accountID, limit)
+	cacheKey := fmt.Sprintf("player-matches:%d:%d", accountID, limit)
 	if h.cacheGet(r, w, cacheKey) {
 		return
 	}
@@ -101,8 +103,350 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.cacheSet(r, cacheKey, matches, 5*time.Minute)
-	h.writeJSON(w, http.StatusOK, matches)
+	summaries := make([]models.PlayerMatchSummary, 0, len(matches))
+	for _, match := range matches {
+		for _, player := range match.Players {
+			if player.AccountID == accountID {
+				summaries = append(summaries, models.PlayerMatchSummary{
+					MatchID:     match.MatchID,
+					HeroID:      player.HeroID,
+					Won:         player.Team == match.WinningTeam,
+					Kills:       player.Kills,
+					Deaths:      player.Deaths,
+					Assists:     player.Assists,
+					NetWorth:    player.NetWorth,
+					LastHits:    player.LastHits,
+					Denies:      player.Denies,
+					PlayerLevel: player.PlayerLevel,
+					DurationS:   match.DurationS,
+					StartTime:   match.StartTime,
+					GameMode:    match.GameMode,
+				})
+				break
+			}
+		}
+	}
+
+	h.cacheSet(r, cacheKey, summaries, 5*time.Minute)
+	h.writeJSON(w, http.StatusOK, summaries)
+}
+
+func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := h.parseAccountID(w, r)
+	if !ok {
+		return
+	}
+
+	limit := h.parseLimit(r, 20, 50)
+	cacheKey := fmt.Sprintf("player-stats:%d:%d", accountID, limit)
+	if h.cacheGet(r, w, cacheKey) {
+		return
+	}
+
+	matches, err := h.deadlock.GetPlayerMatches(r.Context(), accountID, limit)
+	if err != nil {
+		slog.Error("failed to fetch player stats", "account_id", accountID, "error", err)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch player stats"})
+		return
+	}
+
+	stats := models.PlayerStats{AccountID: accountID}
+	totalDuration := 0
+	totalNetWorth := 0
+
+	for _, match := range matches {
+		for _, player := range match.Players {
+			if player.AccountID != accountID {
+				continue
+			}
+			stats.MatchesSampled++
+			stats.TotalKills += player.Kills
+			stats.TotalDeaths += player.Deaths
+			stats.TotalAssists += player.Assists
+			totalDuration += match.DurationS
+			totalNetWorth += player.NetWorth
+			if player.Team == match.WinningTeam {
+				stats.Wins++
+			} else {
+				stats.Losses++
+			}
+			break
+		}
+	}
+
+	if stats.MatchesSampled == 0 {
+		h.writeJSON(w, http.StatusNotFound, map[string]string{"error": "no matches found for account"})
+		return
+	}
+
+	n := float64(stats.MatchesSampled)
+	deaths := float64(stats.TotalDeaths)
+	if deaths == 0 {
+		deaths = 1
+	}
+
+	stats.KDA = float64(stats.TotalKills+stats.TotalAssists) / deaths
+	stats.WinRate = float64(stats.Wins) / n * 100
+	stats.AvgKills = float64(stats.TotalKills) / n
+	stats.AvgDeaths = float64(stats.TotalDeaths) / n
+	stats.AvgAssists = float64(stats.TotalAssists) / n
+	stats.AvgDurationS = float64(totalDuration) / n
+	stats.AvgNetWorth = float64(totalNetWorth) / n
+
+	h.cacheSet(r, cacheKey, stats, 5*time.Minute)
+	h.writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetPlayerProfile(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := h.parseAccountID(w, r)
+	if !ok {
+		return
+	}
+
+	limit := h.parseLimit(r, 50, 50)
+	cacheKey := fmt.Sprintf("player-profile:%d:%d", accountID, limit)
+	if h.cacheGet(r, w, cacheKey) {
+		return
+	}
+
+	matches, err := h.deadlock.GetPlayerMatches(r.Context(), accountID, limit)
+	if err != nil {
+		slog.Error("failed to fetch player profile", "account_id", accountID, "error", err)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch player profile"})
+		return
+	}
+
+	type heroAcc struct {
+		wins, losses, kills, deaths, assists, netWorth, lastHits, denies, level int
+	}
+	type laneAcc struct {
+		wins, losses, kills, deaths, assists int
+	}
+	type playerAcc struct {
+		wins, matches int
+		asTeammate    bool
+	}
+
+	heroMap := map[uint32]*heroAcc{}
+	laneMap := map[int]*laneAcc{}
+	playerMap := map[uint32]*playerAcc{}
+
+	overview := models.PlayerOverview{}
+	awards := models.Awards{}
+	recentMatches := make([]models.PlayerMatchSummary, 0, len(matches))
+	totalDuration, totalNetWorth, totalLastHits, totalDenies, totalLevel := 0, 0, 0, 0, 0
+
+	for _, match := range matches {
+		var me *models.MatchPlayer
+		for i := range match.Players {
+			if match.Players[i].AccountID == accountID {
+				me = &match.Players[i]
+				break
+			}
+		}
+		if me == nil {
+			continue
+		}
+
+		won := me.Team == match.WinningTeam
+		overview.Matches++
+		overview.TotalKills += me.Kills
+		overview.TotalDeaths += me.Deaths
+		overview.TotalAssists += me.Assists
+		totalDuration += match.DurationS
+		totalNetWorth += me.NetWorth
+		totalLastHits += me.LastHits
+		totalDenies += me.Denies
+		totalLevel += me.PlayerLevel
+		if me.AbandonMatchTimeS > 0 {
+			overview.Abandons++
+		}
+		if won {
+			overview.Wins++
+		} else {
+			overview.Losses++
+		}
+
+		if _, ok := heroMap[me.HeroID]; !ok {
+			heroMap[me.HeroID] = &heroAcc{}
+		}
+		h := heroMap[me.HeroID]
+		h.kills += me.Kills
+		h.deaths += me.Deaths
+		h.assists += me.Assists
+		h.netWorth += me.NetWorth
+		h.lastHits += me.LastHits
+		h.denies += me.Denies
+		h.level += me.PlayerLevel
+		if won {
+			h.wins++
+		} else {
+			h.losses++
+		}
+
+		if _, ok := laneMap[me.AssignedLane]; !ok {
+			laneMap[me.AssignedLane] = &laneAcc{}
+		}
+		l := laneMap[me.AssignedLane]
+		l.kills += me.Kills
+		l.deaths += me.Deaths
+		l.assists += me.Assists
+		if won {
+			l.wins++
+		} else {
+			l.losses++
+		}
+
+		for _, p := range match.Players {
+			if p.AccountID == accountID {
+				continue
+			}
+			teammate := p.Team == me.Team
+			if _, ok := playerMap[p.AccountID]; !ok {
+				playerMap[p.AccountID] = &playerAcc{asTeammate: teammate}
+			}
+			acc := playerMap[p.AccountID]
+			acc.matches++
+			if won && teammate {
+				acc.wins++
+			}
+		}
+
+		kda := float64(me.Kills+me.Assists) / math.Max(float64(me.Deaths), 1)
+		if me.Kills > int(awards.MostKills.Value) {
+			awards.MostKills = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: float64(me.Kills)}
+		}
+		if me.Assists > int(awards.MostAssists.Value) {
+			awards.MostAssists = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: float64(me.Assists)}
+		}
+		if me.LastHits > int(awards.MostLastHits.Value) {
+			awards.MostLastHits = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: float64(me.LastHits)}
+		}
+		if me.NetWorth > int(awards.HighestNetWorth.Value) {
+			awards.HighestNetWorth = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: float64(me.NetWorth)}
+		}
+		if kda > awards.BestKDA.Value {
+			awards.BestKDA = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: kda}
+		}
+		if match.DurationS > int(awards.LongestGame.Value) {
+			awards.LongestGame = models.BestGame{MatchID: match.MatchID, HeroID: me.HeroID, Value: float64(match.DurationS)}
+		}
+
+		recentMatches = append(recentMatches, models.PlayerMatchSummary{
+			MatchID:     match.MatchID,
+			HeroID:      me.HeroID,
+			Won:         won,
+			Kills:       me.Kills,
+			Deaths:      me.Deaths,
+			Assists:     me.Assists,
+			NetWorth:    me.NetWorth,
+			LastHits:    me.LastHits,
+			Denies:      me.Denies,
+			PlayerLevel: me.PlayerLevel,
+			DurationS:   match.DurationS,
+			StartTime:   match.StartTime,
+			GameMode:    match.GameMode,
+		})
+	}
+
+	if overview.Matches == 0 {
+		h.writeJSON(w, http.StatusNotFound, map[string]string{"error": "no matches found for account"})
+		return
+	}
+
+	n := float64(overview.Matches)
+	deaths := float64(overview.TotalDeaths)
+	if deaths == 0 {
+		deaths = 1
+	}
+	overview.KDA = float64(overview.TotalKills+overview.TotalAssists) / deaths
+	overview.WinRate = float64(overview.Wins) / n * 100
+	overview.AvgKills = float64(overview.TotalKills) / n
+	overview.AvgDeaths = float64(overview.TotalDeaths) / n
+	overview.AvgAssists = float64(overview.TotalAssists) / n
+	overview.AvgNetWorth = float64(totalNetWorth) / n
+	overview.AvgLastHits = float64(totalLastHits) / n
+	overview.AvgDenies = float64(totalDenies) / n
+	overview.AvgPlayerLevel = float64(totalLevel) / n
+	overview.AvgDurationS = float64(totalDuration) / n
+
+	heroes := make([]models.HeroPerformance, 0, len(heroMap))
+	for heroID, acc := range heroMap {
+		total := acc.wins + acc.losses
+		fn := float64(total)
+		hDeaths := float64(acc.deaths)
+		if hDeaths == 0 {
+			hDeaths = 1
+		}
+		heroes = append(heroes, models.HeroPerformance{
+			HeroID:         heroID,
+			Matches:        total,
+			Wins:           acc.wins,
+			Losses:         acc.losses,
+			WinRate:        float64(acc.wins) / fn * 100,
+			AvgKills:       float64(acc.kills) / fn,
+			AvgDeaths:      float64(acc.deaths) / fn,
+			AvgAssists:     float64(acc.assists) / fn,
+			KDA:            float64(acc.kills+acc.assists) / hDeaths,
+			AvgNetWorth:    float64(acc.netWorth) / fn,
+			AvgLastHits:    float64(acc.lastHits) / fn,
+			AvgDenies:      float64(acc.denies) / fn,
+			AvgPlayerLevel: float64(acc.level) / fn,
+		})
+	}
+
+	lanes := make([]models.LanePerformance, 0, len(laneMap))
+	for lane, acc := range laneMap {
+		total := acc.wins + acc.losses
+		fn := float64(total)
+		lDeaths := float64(acc.deaths)
+		if lDeaths == 0 {
+			lDeaths = 1
+		}
+		lanes = append(lanes, models.LanePerformance{
+			Lane:       lane,
+			Matches:    total,
+			Wins:       acc.wins,
+			Losses:     acc.losses,
+			WinRate:    float64(acc.wins) / fn * 100,
+			AvgKills:   float64(acc.kills) / fn,
+			AvgDeaths:  float64(acc.deaths) / fn,
+			AvgAssists: float64(acc.assists) / fn,
+			KDA:        float64(acc.kills+acc.assists) / lDeaths,
+		})
+	}
+
+	frequentPlayers := make([]models.FrequentPlayer, 0)
+	for pid, acc := range playerMap {
+		if acc.matches < 2 {
+			continue
+		}
+		wr := 0.0
+		if acc.asTeammate {
+			wr = float64(acc.wins) / float64(acc.matches) * 100
+		}
+		frequentPlayers = append(frequentPlayers, models.FrequentPlayer{
+			AccountID:  pid,
+			Matches:    acc.matches,
+			Wins:       acc.wins,
+			WinRate:    wr,
+			AsTeammate: acc.asTeammate,
+		})
+	}
+
+	profile := models.PlayerProfile{
+		AccountID:       accountID,
+		MatchesSampled:  overview.Matches,
+		Overview:        overview,
+		Heroes:          heroes,
+		Lanes:           lanes,
+		Awards:          awards,
+		FrequentPlayers: frequentPlayers,
+		RecentMatches:   recentMatches,
+	}
+
+	h.cacheSet(r, cacheKey, profile, 5*time.Minute)
+	h.writeJSON(w, http.StatusOK, profile)
 }
 
 func (h *Handler) GetPlayerMetrics(w http.ResponseWriter, r *http.Request) {

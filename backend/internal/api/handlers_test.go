@@ -387,15 +387,224 @@ func TestGetItemStats_ClientError(t *testing.T) {
 	assertErrorBody(t, rec)
 }
 
+func TestGetPlayerProfile_Success(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{
+		matches: []models.Match{
+			{
+				MatchID:     1,
+				WinningTeam: "Team0",
+				DurationS:   2000,
+				GameMode:    "Normal",
+				StartTime:   "2024-11-02 03:40:37",
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, HeroID: 1, Team: "Team0", Kills: 8, Deaths: 3, Assists: 5, NetWorth: 40000, LastHits: 200, AssignedLane: 1},
+					{AccountID: 99999, HeroID: 2, Team: "Team0", Kills: 5, Deaths: 4, Assists: 8},
+				},
+			},
+			{
+				MatchID:     2,
+				WinningTeam: "Team1",
+				DurationS:   1800,
+				GameMode:    "Normal",
+				StartTime:   "2024-11-03 05:00:00",
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, HeroID: 1, Team: "Team0", Kills: 4, Deaths: 6, Assists: 3, NetWorth: 30000, LastHits: 150, AssignedLane: 1},
+					{AccountID: 99999, HeroID: 2, Team: "Team1", Kills: 9, Deaths: 2, Assists: 6},
+				},
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/profile", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+
+	var profile models.PlayerProfile
+	if err := json.NewDecoder(rec.Body).Decode(&profile); err != nil {
+		t.Fatalf("failed to decode profile: %v", err)
+	}
+	if profile.Overview.Matches != 2 {
+		t.Errorf("expected 2 matches, got %d", profile.Overview.Matches)
+	}
+	if profile.Overview.Wins != 1 {
+		t.Errorf("expected 1 win, got %d", profile.Overview.Wins)
+	}
+	if len(profile.Heroes) != 1 {
+		t.Errorf("expected 1 hero entry, got %d", len(profile.Heroes))
+	}
+	if len(profile.Lanes) != 1 {
+		t.Errorf("expected 1 lane entry, got %d", len(profile.Lanes))
+	}
+	if profile.Awards.MostKills.Value != 8 {
+		t.Errorf("expected most kills = 8, got %f", profile.Awards.MostKills.Value)
+	}
+	if len(profile.RecentMatches) != 2 {
+		t.Errorf("expected 2 recent matches, got %d", len(profile.RecentMatches))
+	}
+}
+
+func TestGetPlayerProfile_NoMatches(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{matches: []models.Match{}})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/profile", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+	assertErrorBody(t, rec)
+}
+
+func TestGetPlayerProfile_InvalidID(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/notanid/profile", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorBody(t, rec)
+}
+
+func TestGetPlayerProfile_ClientError(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{err: fmt.Errorf("api down")})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/profile", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusInternalServerError)
+	assertErrorBody(t, rec)
+}
+
 func TestGetPlayerMatches_Success(t *testing.T) {
 	r := newRouter(&mockDeadlockClient{
-		matches: []models.Match{{MatchID: 123, GameMode: "Normal"}},
+		matches: []models.Match{
+			{
+				MatchID:     123,
+				GameMode:    "Normal",
+				WinningTeam: "Team0",
+				DurationS:   2000,
+				StartTime:   "2024-11-02 03:40:37",
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, HeroID: 1, Team: "Team0", Kills: 5, Deaths: 3, Assists: 7},
+				},
+			},
+		},
 	})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/matches", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	assertStatus(t, rec, http.StatusOK)
 	assertJSONArrayLen(t, rec, 1)
+}
+
+func TestGetPlayerMatches_PlayerNotInMatch(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{
+		matches: []models.Match{
+			{
+				MatchID: 123,
+				Players: []models.MatchPlayer{
+					{AccountID: 99999, HeroID: 1, Team: "Team0"},
+				},
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/matches", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+	assertJSONArrayLen(t, rec, 0)
+}
+
+func TestGetPlayerStats_Success(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{
+		matches: []models.Match{
+			{
+				MatchID:     1,
+				WinningTeam: "Team0",
+				DurationS:   2000,
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, Team: "Team0", Kills: 10, Deaths: 2, Assists: 5},
+				},
+			},
+			{
+				MatchID:     2,
+				WinningTeam: "Team1",
+				DurationS:   1800,
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, Team: "Team0", Kills: 4, Deaths: 6, Assists: 3},
+				},
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/stats", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+
+	var stats models.PlayerStats
+	if err := json.NewDecoder(rec.Body).Decode(&stats); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if stats.MatchesSampled != 2 {
+		t.Errorf("expected 2 matches sampled, got %d", stats.MatchesSampled)
+	}
+	if stats.Wins != 1 {
+		t.Errorf("expected 1 win, got %d", stats.Wins)
+	}
+	if stats.Losses != 1 {
+		t.Errorf("expected 1 loss, got %d", stats.Losses)
+	}
+	if stats.TotalKills != 14 {
+		t.Errorf("expected 14 total kills, got %d", stats.TotalKills)
+	}
+}
+
+func TestGetPlayerStats_NoMatches(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{matches: []models.Match{}})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/stats", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusNotFound)
+	assertErrorBody(t, rec)
+}
+
+func TestGetPlayerStats_InvalidID(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/notanid/stats", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorBody(t, rec)
+}
+
+func TestGetPlayerStats_ClientError(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{err: fmt.Errorf("api down")})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/stats", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusInternalServerError)
+	assertErrorBody(t, rec)
+}
+
+func TestGetPlayerStats_ZeroDeaths(t *testing.T) {
+	r := newRouter(&mockDeadlockClient{
+		matches: []models.Match{
+			{
+				MatchID:     1,
+				WinningTeam: "Team0",
+				Players: []models.MatchPlayer{
+					{AccountID: 12345, Team: "Team0", Kills: 10, Deaths: 0, Assists: 5},
+				},
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/players/12345/stats", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+
+	var stats models.PlayerStats
+	if err := json.NewDecoder(rec.Body).Decode(&stats); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if stats.KDA != 15.0 {
+		t.Errorf("expected KDA 15.0 (deaths clamped to 1), got %f", stats.KDA)
+	}
 }
 
 func TestGetPlayerMatches_InvalidID(t *testing.T) {
