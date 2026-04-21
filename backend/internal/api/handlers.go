@@ -15,6 +15,7 @@ import (
 	"github.com/JustJoeYo/trophy-collector/internal/clients"
 	"github.com/JustJoeYo/trophy-collector/internal/db"
 	"github.com/JustJoeYo/trophy-collector/internal/models"
+	"github.com/JustJoeYo/trophy-collector/internal/steamid"
 )
 
 type Handler struct {
@@ -59,12 +60,12 @@ func (h *Handler) cacheSet(r *http.Request, key string, data interface{}, ttl ti
 
 func (h *Handler) parseAccountID(w http.ResponseWriter, r *http.Request) (uint32, bool) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := steamid.Resolve(idStr)
 	if err != nil {
-		h.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid account id"})
+		h.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid steam id: " + err.Error()})
 		return 0, false
 	}
-	return uint32(id), true
+	return id, true
 }
 
 func (h *Handler) parseHeroID(w http.ResponseWriter, r *http.Request) (uint32, bool) {
