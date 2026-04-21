@@ -14,6 +14,12 @@ import (
 	"github.com/JustJoeYo/trophy-collector/internal/models"
 )
 
+func newRouter(client *mockDeadlockClient) *chi.Mux {
+	r := chi.NewRouter()
+	NewHandler(client, &mockCache{}, nil).RegisterRoutes(r)
+	return r
+}
+
 type mockDeadlockClient struct {
 	heroes        []models.Hero
 	items         []models.Item
@@ -113,10 +119,8 @@ func (m *mockCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func newRouter(client *mockDeadlockClient) *chi.Mux {
-	r := chi.NewRouter()
-	NewHandler(client, &mockCache{}).RegisterRoutes(r)
-	return r
+func (m *mockDeadlockClient) GetPlayerMatchesPage(ctx context.Context, accountID uint32, offset, limit int, since *time.Time) ([]models.Match, error) {
+	return m.matches, m.err
 }
 
 func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, expected int) {
