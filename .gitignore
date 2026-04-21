@@ -4,6 +4,7 @@ backend/bin/
 *.test
 *.out
 coverage.out
+backend/tmp/main
 
 # Node
 frontend/node_modules/
