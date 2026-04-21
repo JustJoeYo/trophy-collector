@@ -297,14 +297,17 @@ type SyncStatus struct {
 
 func (db *DB) GetSyncStatus(ctx context.Context, accountID uint32) (*SyncStatus, error) {
 	var total int
-	var lastSynced *string
-	err := db.pool.QueryRow(ctx,
-		"SELECT total_matches, last_synced_at::text FROM players WHERE account_id = $1",
+	db.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM player_matches WHERE account_id = $1",
 		accountID,
-	).Scan(&total, &lastSynced)
-	if err != nil {
-		return &SyncStatus{Synced: false, Syncing: db.IsSyncing(accountID), TotalMatches: 0}, nil
-	}
+	).Scan(&total)
+
+	var lastSynced *string
+	db.pool.QueryRow(ctx,
+		"SELECT last_synced_at::text FROM players WHERE account_id = $1",
+		accountID,
+	).Scan(&lastSynced)
+
 	return &SyncStatus{
 		Synced:       lastSynced != nil,
 		Syncing:      db.IsSyncing(accountID),
