@@ -12,6 +12,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	})
 
 	r.Get("/api/v1/players/{id}/profile", h.GetPlayerProfile)
+	r.Get("/api/v1/players/{id}/sync-status", h.GetSyncStatus)
 	r.Get("/api/v1/players/{id}/matches", h.GetPlayerMatches)
 	r.Get("/api/v1/players/{id}/stats", h.GetPlayerStats)
 	r.Get("/api/v1/players/{id}/metrics", h.GetPlayerMetrics)
