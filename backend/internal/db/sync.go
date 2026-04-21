@@ -27,6 +27,11 @@ func (db *DB) NeedsSync(ctx context.Context, accountID uint32) (bool, error) {
 }
 
 func (db *DB) SyncPlayer(ctx context.Context, client clients.DeadlockClient, accountID uint32) error {
+	if !db.tryLockSync(accountID) {
+		slog.Info("sync already in progress, skipping", "account_id", accountID)
+		return nil
+	}
+	defer db.unlockSync(accountID)
     slog.Info("syncing player", "account_id", accountID)
 
     var lastSynced *time.Time

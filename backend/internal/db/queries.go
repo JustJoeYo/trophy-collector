@@ -289,6 +289,29 @@ func (db *DB) GetPlayerMatchHistory(ctx context.Context, accountID uint32) ([]mo
 	return matches, nil
 }
 
+type SyncStatus struct {
+	Synced       bool `json:"synced"`
+	Syncing      bool `json:"syncing"`
+	TotalMatches int  `json:"total_matches"`
+}
+
+func (db *DB) GetSyncStatus(ctx context.Context, accountID uint32) (*SyncStatus, error) {
+	var total int
+	var lastSynced *string
+	err := db.pool.QueryRow(ctx,
+		"SELECT total_matches, last_synced_at::text FROM players WHERE account_id = $1",
+		accountID,
+	).Scan(&total, &lastSynced)
+	if err != nil {
+		return &SyncStatus{Synced: false, Syncing: db.IsSyncing(accountID), TotalMatches: 0}, nil
+	}
+	return &SyncStatus{
+		Synced:       lastSynced != nil,
+		Syncing:      db.IsSyncing(accountID),
+		TotalMatches: total,
+	}, nil
+}
+
 func (db *DB) GetKnownPlayers(ctx context.Context) ([]uint32, error) {
 	rows, err := db.pool.Query(ctx, "SELECT account_id FROM players")
 	if err != nil {

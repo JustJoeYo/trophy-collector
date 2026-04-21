@@ -215,6 +215,23 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, stats)
 }
 
+func (h *Handler) GetSyncStatus(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := h.parseAccountID(w, r)
+	if !ok {
+		return
+	}
+	if h.db == nil {
+		h.writeJSON(w, http.StatusOK, map[string]interface{}{"synced": false, "total_matches": 0})
+		return
+	}
+	status, err := h.db.GetSyncStatus(r.Context(), accountID)
+	if err != nil {
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get sync status"})
+		return
+	}
+	h.writeJSON(w, http.StatusOK, status)
+}
+
 func (h *Handler) GetPlayerProfile(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := h.parseAccountID(w, r)
 	if !ok {
@@ -227,16 +244,22 @@ func (h *Handler) GetPlayerProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.db != nil {
-		needsSync, _ := h.db.NeedsSync(r.Context(), accountID)
-		if needsSync {
-			go h.db.SyncPlayer(context.Background(), h.deadlock, accountID)
-		}
-		profile, err := h.db.GetPlayerProfile(r.Context(), accountID)
-		if err == nil && profile != nil {
+		profile, dbErr := h.db.GetPlayerProfile(r.Context(), accountID)
+		if dbErr == nil && profile != nil {
+			needsSync, _ := h.db.NeedsSync(r.Context(), accountID)
+			if needsSync {
+				go h.db.SyncPlayer(context.Background(), h.deadlock, accountID)
+			}
 			h.cacheSet(r, cacheKey, profile, 5*time.Minute)
 			h.writeJSON(w, http.StatusOK, profile)
 			return
 		}
+		go h.db.SyncPlayer(context.Background(), h.deadlock, accountID)
+		h.writeJSON(w, http.StatusAccepted, map[string]string{
+			"status":  "syncing",
+			"message": "Indexing match history — this takes about 30–60 seconds for first-time lookups.",
+		})
+		return
 	}
 
 	limit := 50
