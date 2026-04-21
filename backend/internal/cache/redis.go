@@ -13,10 +13,11 @@ type redisCache struct {
 }
 
 func NewRedisCache(addr string) Cache {
-    client := redis.NewClient(&redis.Options{
-        Addr: addr,
-    })
-    return &redisCache{client: client}
+    opts, err := redis.ParseURL(addr)
+    if err != nil {
+        opts = &redis.Options{Addr: addr}
+    }
+    return &redisCache{client: redis.NewClient(opts)}
 }
 
 func (r *redisCache) Get(ctx context.Context, key string) (string, error) {
