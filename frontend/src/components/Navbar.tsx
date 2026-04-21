@@ -13,6 +13,9 @@ export default function Navbar() {
                         <li>
                             <NavLink to="/heroes">Heroes</NavLink>
                         </li>
+                        <li>
+                            <NavLink to="/items">Items</NavLink>
+                        </li>
                     </ul>
                 </nav>
             </div>
