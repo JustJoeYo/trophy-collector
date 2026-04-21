@@ -9,12 +9,14 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - STEAM_API_KEY=${STEAM_API_KEY}
       - DEADLOCK_API_URL=https://api.deadlock-api.com
+      - ASSETS_URL=https://assets.deadlock-api.com
       - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=
+      - POSTGRES_URL=postgres://trophy:trophy@postgres:5432/trophy?sslmode=disable
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 
@@ -38,3 +40,23 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=trophy
+      - POSTGRES_PASSWORD=trophy
+      - POSTGRES_DB=trophy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trophy"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
