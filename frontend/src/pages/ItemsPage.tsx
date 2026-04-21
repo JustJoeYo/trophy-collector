@@ -93,42 +93,93 @@ export default function ItemsPage() {
     }
   }, [])
 
-  const rows = useMemo(() => toItemWithStats(items, stats), [items, stats])
+  const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
+
+  const rows = useMemo(() => {
+    const data = toItemWithStats(items, stats)
+
+    if (sortBy === 'pick_rate') {
+      return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
+    }
+
+    return [...data].sort((a, b) => b.win_rate - a.win_rate)
+  }, [items, stats, sortBy])
 
   return (
-    <main>
-      <h1>Items</h1>
-      <p>Win rate and pick rate from live item stats.</p>
+    <main className="items-page">
+      <section>
+        <p className="eyebrow">Items</p>
+        <h1>Item win and pick rates</h1>
+        <p className="page-intro">
+          See items that are winning the most games and how popular they are among players. The win and pick rates are calculated based on the most recent bucket of matches for each item, which includes matches from the last few weeks.
+        </p>
+      </section>
+      
+      <section className="items-summary" aria-label="Item summary">
+        <article className="summary-card">
+          <span className="summary-label">Loaded items</span>
+          <strong>{rows.length}</strong>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Best win rate</span>
+          <strong>
+            {rows.length > 0 ? `${rows[0].item.name} (${pct(rows[0].win_rate)})` : 'N/A'}
+          </strong>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Total sampled matches</span>
+          <strong>{rows.reduce((sum,row) => sum + row.stats.matches, 0).toLocaleString()}</strong>
+        </article>
+      </section>
+      <section className="items-controls" aria-label="Sort controls">
+        <label className="items-controls-label" htmlFor="item-sort">Sort by</label>
+        <select
+          className="items-controls-select"
+          id="item-sort"
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as 'win_rate' | 'pick_rate')}
+        >
+          <option value="win_rate">Win rate</option>
+          <option value="pick_rate">Pick rate</option>
+        </select>
+      </section>
+      <section>
+        {loading ? <p className="status-message">Loading items...</p> : null}
+        {error ? <p className="status-message status-error">{error}</p> : null}
 
-      {loading ? <p>Loading items...</p> : null}
-      {error ? <p>{error}</p> : null}
+        {!loading && !error && rows.length === 0 ? (
+          <p className="status-message">No item stats available yet.</p>
+        ) : null}
 
-      {!loading && !error ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Class</th>
-              <th>Win Rate</th>
-              <th>Pick Rate</th>
-              <th>Matches</th>
-              <th>Players</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.item.id}>
-                <td>{row.item.name}</td>
-                <td>{row.item.class_name}</td>
-                <td>{pct(row.win_rate)}</td>
-                <td>{pct(row.pick_rate)}</td>
-                <td>{row.stats.matches}</td>
-                <td>{row.stats.players}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+        {!loading && !error && rows.length > 0 ? (
+          <section className="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Win Rate</th>
+                  <th>Pick Rate</th>
+                  <th>Matches</th>
+                  <th>Players</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.item.id}>
+                    <td>
+                      <strong>{row.item.name}</strong>
+                    </td>
+                    <td>{pct(row.win_rate)}</td>
+                    <td>{pct(row.pick_rate)}</td>
+                    <td>{row.stats.matches}</td>
+                    <td>{row.stats.players}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
+      </section>
     </main>
   )
 }

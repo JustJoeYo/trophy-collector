@@ -55,3 +55,129 @@ main {
   margin: 0 auto;
   padding: 1.25rem 1rem;
 }
+
+.items-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.page-intro {
+  margin: 0.5rem 0 0;
+  color: #cbd5e1;
+  max-width: 70ch;
+  line-height: 1.55;
+}
+
+.items-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-card {
+  border: 1px solid #2a2a2a;
+  background: #101010;
+  border-radius: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.summary-label {
+  color: #9ca3af;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.status-message {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #2a2a2a;
+  border-radius: 0.55rem;
+  background: #111827;
+  color: #dbeafe;
+}
+
+.status-error {
+  border-color: #7f1d1d;
+  background: #2b1111;
+  color: #fecaca;
+}
+
+.table-card {
+  border: 1px solid #2a2a2a;
+  border-radius: 0.7rem;
+  overflow-x: auto;
+  background: #0f0f0f;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-card th,
+.table-card td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+}
+
+.table-card th {
+  color: #9ca3af;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.table-card tbody tr:hover {
+  background: #141414;
+}
+
+@media (max-width: 860px) {
+  .items-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.items-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: -0.2rem;
+}
+
+.items-controls-label {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.items-controls-select {
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}
+
+.items-controls-select:focus {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .items-controls {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
