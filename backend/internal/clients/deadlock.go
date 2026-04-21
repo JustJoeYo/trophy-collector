@@ -13,7 +13,7 @@ import (
 
 type DeadlockClient interface {
 	GetPlayerMatches(ctx context.Context, accountID uint32, limit int) ([]models.Match, error)
-	GetPlayerMatchesPage(ctx context.Context, accountID uint32, offset, limit int, since *time.Time) ([]models.Match, error)
+	GetPlayerMatchesPage(ctx context.Context, accountID uint32, minMatchID *uint64, limit int, since *time.Time) ([]models.Match, error)
 	GetPlayerMetrics(ctx context.Context, accountID uint32) (*models.PlayerMetrics, error)
 	GetActiveMatches(ctx context.Context, accountIDs []uint32) ([]models.Match, error)
 
@@ -74,15 +74,17 @@ func (c *deadlockClient) fetch(ctx context.Context, url string, target interface
 	return json.NewDecoder(resp.Body).Decode(target)
 }
 
-func (c *deadlockClient) GetPlayerMatchesPage(ctx context.Context, accountID uint32, offset, limit int, since *time.Time) ([]models.Match, error) {
-	url := fmt.Sprintf("%s/v1/matches/metadata?account_ids=%d&start=%d&limit=%d&include_player_info=true",
-		c.baseURL, accountID, offset, limit)
+func (c *deadlockClient) GetPlayerMatchesPage(ctx context.Context, accountID uint32, minMatchID *uint64, limit int, since *time.Time) ([]models.Match, error) {
+	url := fmt.Sprintf("%s/v1/matches/metadata?account_ids=%d&limit=%d&include_player_info=true", c.baseURL, accountID, limit)
+	if minMatchID != nil {
+		url += fmt.Sprintf("&min_match_id=%d", *minMatchID)
+	}
 	if since != nil {
 		url += fmt.Sprintf("&min_unix_timestamp=%d", since.Unix())
 	}
 	var matches []models.Match
 	if err := c.fetch(ctx, url, &matches); err != nil {
-		return nil, fmt.Errorf("GetPlayerMatchesPage %d offset %d: %w", accountID, offset, err)
+		return nil, fmt.Errorf("GetPlayerMatchesPage %d: %w", accountID, err)
 	}
 	return matches, nil
 }

@@ -35,31 +35,33 @@ func (db *DB) SyncPlayer(ctx context.Context, client clients.DeadlockClient, acc
         accountID,
     ).Scan(&lastSynced)
 
-    page := 0
     limit := 50
     total := 0
+    var minMatchID *uint64
 
     for {
-        matches, err := db.fetchPage(ctx, client, accountID, page, limit, lastSynced)
+        matches, err := client.GetPlayerMatchesPage(ctx, accountID, minMatchID, limit, lastSynced)
         if err != nil {
-            return fmt.Errorf("fetching page %d: %w", page, err)
+            return fmt.Errorf("fetching page (min_match_id=%v): %w", minMatchID, err)
         }
 
         if len(matches) == 0 {
             break
         }
 
-        if err := db.insertMatches(ctx, accountID, matches); err != nil {
-            return fmt.Errorf("inserting page %d: %w", page, err)
+        inserted, err := db.insertMatches(ctx, accountID, matches)
+        if err != nil {
+            return fmt.Errorf("inserting matches: %w", err)
         }
 
-        total += len(matches)
-        slog.Info("synced matches", "account_id", accountID, "page", page, "count", len(matches))
+        total += inserted
+        lastID := matches[len(matches)-1].MatchID + 1
+        minMatchID = &lastID
+        slog.Info("synced matches", "account_id", accountID, "count", len(matches), "next_min_match_id", lastID)
 
         if len(matches) < limit {
             break
         }
-        page++
     }
 
     _, err := db.pool.Exec(ctx, `
@@ -74,17 +76,15 @@ func (db *DB) SyncPlayer(ctx context.Context, client clients.DeadlockClient, acc
     return err
 }
 
-func (db *DB) fetchPage(ctx context.Context, client clients.DeadlockClient, accountID uint32, page, limit int, since *time.Time) ([]models.Match, error) {
-    return client.GetPlayerMatchesPage(ctx, accountID, page*limit, limit, since)
-}
 
-func (db *DB) insertMatches(ctx context.Context, accountID uint32, matches []models.Match) error {
+func (db *DB) insertMatches(ctx context.Context, accountID uint32, matches []models.Match) (int, error) {
     tx, err := db.pool.Begin(ctx)
     if err != nil {
-        return err
+        return 0, err
     }
     defer tx.Rollback(ctx)
 
+    inserted := 0
     for _, match := range matches {
         _, err := tx.Exec(ctx, `
             INSERT INTO matches (match_id, game_mode, match_mode, duration_s, start_time, winning_team, match_outcome)
@@ -92,25 +92,26 @@ func (db *DB) insertMatches(ctx context.Context, accountID uint32, matches []mod
             ON CONFLICT (match_id) DO NOTHING
         `, match.MatchID, match.GameMode, match.MatchMode, match.DurationS, match.StartTime, match.WinningTeam, match.MatchOutcome)
         if err != nil {
-            return err
+            return 0, err
         }
 
         for _, player := range match.Players {
             if player.AccountID != accountID {
                 continue
             }
-            _, err := tx.Exec(ctx, `
+            tag, err := tx.Exec(ctx, `
                 INSERT INTO player_matches
                 (account_id, match_id, hero_id, team, kills, deaths, assists, net_worth, last_hits, denies, player_level, assigned_lane, abandon_match_time_s, won)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 ON CONFLICT (account_id, match_id) DO NOTHING
             `, accountID, match.MatchID, player.HeroID, player.Team, player.Kills, player.Deaths, player.Assists, player.NetWorth, player.LastHits, player.Denies, player.PlayerLevel, player.AssignedLane, player.AbandonMatchTimeS, player.Team == match.WinningTeam)
             if err != nil {
-                return err
+                return 0, err
             }
+            inserted += int(tag.RowsAffected())
             break
         }
     }
 
-    return tx.Commit(ctx)
+    return inserted, tx.Commit(ctx)
 }

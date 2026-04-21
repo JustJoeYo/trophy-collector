@@ -119,7 +119,7 @@ func (m *mockCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (m *mockDeadlockClient) GetPlayerMatchesPage(ctx context.Context, accountID uint32, offset, limit int, since *time.Time) ([]models.Match, error) {
+func (m *mockDeadlockClient) GetPlayerMatchesPage(ctx context.Context, accountID uint32, minMatchID *uint64, limit int, since *time.Time) ([]models.Match, error) {
 	return m.matches, m.err
 }
 
