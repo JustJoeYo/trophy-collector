@@ -10,6 +10,7 @@ type Config struct {
     DeadlockAPIURL string
     AssetsURL      string
     RedisAddr      string
+    PostgresURL    string
 }
 
 func Load() *Config {
@@ -18,6 +19,7 @@ func Load() *Config {
 		DeadlockAPIURL: getEnv("DEADLOCK_API_URL", "https://api.deadlock-api.com"),
 		RedisAddr: getEnv("REDIS_ADDR", "localhost:6379"),
 		AssetsURL: getEnv("ASSETS_URL", "https://assets.deadlock-api.com"),
+		PostgresURL: getEnv("POSTGRES_URL", "postgres://trophy:trophy@localhost:5432/trophy?sslmode=disable"),
 	}
 
 	slog.Info("config loaded",
@@ -25,6 +27,7 @@ func Load() *Config {
 	"deadlock_api_url", cfg.DeadlockAPIURL,
 	"redis_addr", cfg.RedisAddr,
 	"assets_url", cfg.AssetsURL,
+	"postgres_url", "configured",
 	)
 
 	return cfg

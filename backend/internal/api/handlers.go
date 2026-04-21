@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,18 +13,22 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/JustJoeYo/trophy-collector/internal/cache"
 	"github.com/JustJoeYo/trophy-collector/internal/clients"
+	"github.com/JustJoeYo/trophy-collector/internal/db"
 	"github.com/JustJoeYo/trophy-collector/internal/models"
+	"github.com/JustJoeYo/trophy-collector/internal/steamid"
 )
 
 type Handler struct {
 	deadlock clients.DeadlockClient
 	cache    cache.Cache
+	db       *db.DB
 }
 
-func NewHandler(deadlock clients.DeadlockClient, cache cache.Cache) *Handler {
+func NewHandler(deadlock clients.DeadlockClient, cache cache.Cache, database *db.DB) *Handler {
 	return &Handler{
 		deadlock: deadlock,
 		cache:    cache,
+		db:       database,
 	}
 }
 
@@ -55,12 +60,12 @@ func (h *Handler) cacheSet(r *http.Request, key string, data interface{}, ttl ti
 
 func (h *Handler) parseAccountID(w http.ResponseWriter, r *http.Request) (uint32, bool) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := steamid.Resolve(idStr)
 	if err != nil {
-		h.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid account id"})
+		h.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid steam id: " + err.Error()})
 		return 0, false
 	}
-	return uint32(id), true
+	return id, true
 }
 
 func (h *Handler) parseHeroID(w http.ResponseWriter, r *http.Request) (uint32, bool) {
@@ -90,12 +95,25 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := h.parseLimit(r, 10, 50)
-	cacheKey := fmt.Sprintf("player-matches:%d:%d", accountID, limit)
+	cacheKey := fmt.Sprintf("player-matches:%d", accountID)
 	if h.cacheGet(r, w, cacheKey) {
 		return
 	}
 
+	if h.db != nil {
+		needsSync, _ := h.db.NeedsSync(r.Context(), accountID)
+		if needsSync {
+			go h.db.SyncPlayer(context.Background(), h.deadlock, accountID)
+		}
+		summaries, err := h.db.GetPlayerMatchHistory(r.Context(), accountID)
+		if err == nil && len(summaries) > 0 {
+			h.cacheSet(r, cacheKey, summaries, 5*time.Minute)
+			h.writeJSON(w, http.StatusOK, summaries)
+			return
+		}
+	}
+
+	limit := h.parseLimit(r, 50, 50)
 	matches, err := h.deadlock.GetPlayerMatches(r.Context(), accountID, limit)
 	if err != nil {
 		slog.Error("failed to fetch matches", "account_id", accountID, "error", err)
@@ -203,12 +221,25 @@ func (h *Handler) GetPlayerProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := h.parseLimit(r, 50, 50)
-	cacheKey := fmt.Sprintf("player-profile:%d:%d", accountID, limit)
+	cacheKey := fmt.Sprintf("player-profile:%d", accountID)
 	if h.cacheGet(r, w, cacheKey) {
 		return
 	}
 
+	if h.db != nil {
+		needsSync, _ := h.db.NeedsSync(r.Context(), accountID)
+		if needsSync {
+			go h.db.SyncPlayer(context.Background(), h.deadlock, accountID)
+		}
+		profile, err := h.db.GetPlayerProfile(r.Context(), accountID)
+		if err == nil && profile != nil {
+			h.cacheSet(r, cacheKey, profile, 5*time.Minute)
+			h.writeJSON(w, http.StatusOK, profile)
+			return
+		}
+	}
+
+	limit := 50
 	matches, err := h.deadlock.GetPlayerMatches(r.Context(), accountID, limit)
 	if err != nil {
 		slog.Error("failed to fetch player profile", "account_id", accountID, "error", err)
