@@ -229,7 +229,12 @@ type Item struct {
 	Name         string `json:"name"`
 	Type         string `json:"type"`
 	ItemSlotType string `json:"item_slot_type"`
+	ItemTier     int    `json:"item_tier"`
 	Cost         uint32 `json:"cost"`
+	Description  string `json:"description"`
+	IsActiveItem bool   `json:"is_active_item"`
+	Shopable     bool   `json:"shopable"`
+	Image        string `json:"image"`
 }
 
 type HeroPerformance struct {
