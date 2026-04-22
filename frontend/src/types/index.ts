@@ -233,7 +233,8 @@ export interface Item {
   id: number
   class_name: string
   name: string
-  item_slot_type: 'weapon' | 'vitality' | 'spirit'
+  type: string
+  item_slot_type: 'weapon' | 'vitality' | 'spirit' | ''
   cost: number
 }
 
