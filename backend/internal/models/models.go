@@ -72,22 +72,22 @@ type HeroBuildStats struct {
 }
 
 type HeroCounterStats struct {
-	HeroID          uint32  `json:"hero_id"`
-	EnemyHeroID     uint32  `json:"enemy_hero_id"`
-	Wins            int     `json:"wins"`
-	MatchesPlayed   int     `json:"matches_played"`
-	Kills           int     `json:"kills"`
-	EnemyKills      int     `json:"enemy_kills"`
-	Deaths          int     `json:"deaths"`
-	EnemyDeaths     int     `json:"enemy_deaths"`
-	Assists         int     `json:"assists"`
-	EnemyAssists    int     `json:"enemy_assists"`
-	Denies          int     `json:"denies"`
-	EnemyDenies     int     `json:"enemy_denies"`
-	LastHits        int     `json:"last_hits"`
-	EnemyLastHits   int     `json:"enemy_last_hits"`
-	NetWorth        float64 `json:"networth"`
-	EnemyNetWorth   float64 `json:"enemy_networth"`
+	HeroID        uint32  `json:"hero_id"`
+	EnemyHeroID   uint32  `json:"enemy_hero_id"`
+	Wins          int     `json:"wins"`
+	MatchesPlayed int     `json:"matches_played"`
+	Kills         int     `json:"kills"`
+	EnemyKills    int     `json:"enemy_kills"`
+	Deaths        int     `json:"deaths"`
+	EnemyDeaths   int     `json:"enemy_deaths"`
+	Assists       int     `json:"assists"`
+	EnemyAssists  int     `json:"enemy_assists"`
+	Denies        int     `json:"denies"`
+	EnemyDenies   int     `json:"enemy_denies"`
+	LastHits      int     `json:"last_hits"`
+	EnemyLastHits int     `json:"enemy_last_hits"`
+	NetWorth      float64 `json:"networth"`
+	EnemyNetWorth float64 `json:"enemy_networth"`
 }
 
 type HeroSynergyStats struct {
@@ -117,42 +117,42 @@ type AbilityOrderStats struct {
 }
 
 type ItemStats struct {
-	ItemID               uint32  `json:"item_id"`
-	Bucket               int     `json:"bucket"`
-	Wins                 int     `json:"wins"`
-	Losses               int     `json:"losses"`
-	Matches              int     `json:"matches"`
-	Players              int     `json:"players"`
-	AvgBuyTimeS          float64 `json:"avg_buy_time_s"`
-	AvgSellTimeS         float64 `json:"avg_sell_time_s"`
-	AvgBuyTimeRelative   float64 `json:"avg_buy_time_relative"`
-	AvgSellTimeRelative  float64 `json:"avg_sell_time_relative"`
+	ItemID              uint32  `json:"item_id"`
+	Bucket              int     `json:"bucket"`
+	Wins                int     `json:"wins"`
+	Losses              int     `json:"losses"`
+	Matches             int     `json:"matches"`
+	Players             int     `json:"players"`
+	AvgBuyTimeS         float64 `json:"avg_buy_time_s"`
+	AvgSellTimeS        float64 `json:"avg_sell_time_s"`
+	AvgBuyTimeRelative  float64 `json:"avg_buy_time_relative"`
+	AvgSellTimeRelative float64 `json:"avg_sell_time_relative"`
 }
 
 type GameStats struct {
-	Bucket        int     `json:"bucket"`
-	TotalMatches  int     `json:"total_matches"`
-	AvgDurationS  float64 `json:"avg_duration_s"`
-	AvgKills      float64 `json:"avg_kills"`
-	AvgDeaths     float64 `json:"avg_deaths"`
-	AvgAssists    float64 `json:"avg_assists"`
-	AvgKDRatio    float64 `json:"avg_kd_ratio"`
-	AvgNetWorth   float64 `json:"avg_net_worth"`
-	AvgLastHits   float64 `json:"avg_last_hits"`
-	AvgDenies     float64 `json:"avg_denies"`
+	Bucket       int     `json:"bucket"`
+	TotalMatches int     `json:"total_matches"`
+	AvgDurationS float64 `json:"avg_duration_s"`
+	AvgKills     float64 `json:"avg_kills"`
+	AvgDeaths    float64 `json:"avg_deaths"`
+	AvgAssists   float64 `json:"avg_assists"`
+	AvgKDRatio   float64 `json:"avg_kd_ratio"`
+	AvgNetWorth  float64 `json:"avg_net_worth"`
+	AvgLastHits  float64 `json:"avg_last_hits"`
+	AvgDenies    float64 `json:"avg_denies"`
 }
 
 type KillDeathStats struct {
-	PositionX  int    `json:"position_x"`
-	PositionY  int    `json:"position_y"`
-	KillerTeam int    `json:"killer_team"`
-	Deaths     int    `json:"deaths"`
-	Kills      int    `json:"kills"`
+	PositionX  int `json:"position_x"`
+	PositionY  int `json:"position_y"`
+	KillerTeam int `json:"killer_team"`
+	Deaths     int `json:"deaths"`
+	Kills      int `json:"kills"`
 }
 
 type BadgeDistribution struct {
-	BadgeLevel    int `json:"badge_level"`
-	TotalMatches  int `json:"total_matches"`
+	BadgeLevel   int `json:"badge_level"`
+	TotalMatches int `json:"total_matches"`
 }
 
 type HeroScoreboard struct {
@@ -170,15 +170,15 @@ type PlayerScoreboard struct {
 }
 
 type BuildDetails struct {
-	HeroID                uint32 `json:"hero_id"`
-	HeroBuildID           uint32 `json:"hero_build_id"`
-	AuthorAccountID       uint32 `json:"author_account_id"`
-	LastUpdatedTimestamp  int64  `json:"last_updated_timestamp"`
-	Name                  string `json:"name"`
-	Description           string `json:"description"`
-	Version               int    `json:"version"`
-	NumFavorites          int    `json:"num_favorites"`
-	NumIgnores            int    `json:"num_ignores"`
+	HeroID               uint32 `json:"hero_id"`
+	HeroBuildID          uint32 `json:"hero_build_id"`
+	AuthorAccountID      uint32 `json:"author_account_id"`
+	LastUpdatedTimestamp int64  `json:"last_updated_timestamp"`
+	Name                 string `json:"name"`
+	Description          string `json:"description"`
+	Version              int    `json:"version"`
+	NumFavorites         int    `json:"num_favorites"`
+	NumIgnores           int    `json:"num_ignores"`
 }
 
 type Build struct {
@@ -200,10 +200,10 @@ type Rank struct {
 }
 
 type MetricStat struct {
-	Avg         float64 `json:"avg"`
-	Std         float64 `json:"std"`
-	Percentile1 float64 `json:"percentile1"`
-	Percentile5 float64 `json:"percentile5"`
+	Avg          float64 `json:"avg"`
+	Std          float64 `json:"std"`
+	Percentile1  float64 `json:"percentile1"`
+	Percentile5  float64 `json:"percentile5"`
 	Percentile25 float64 `json:"percentile25"`
 	Percentile50 float64 `json:"percentile50"`
 	Percentile75 float64 `json:"percentile75"`
@@ -213,20 +213,22 @@ type MetricStat struct {
 }
 
 type PlayerMetrics struct {
-	TeammateHealing    MetricStat `json:"teammate_healing"`
-	SelfHealingPerMin  MetricStat `json:"self_healing_per_min"`
-	CritShotRate       MetricStat `json:"crit_shot_rate"`
-	PlayerDamage       MetricStat `json:"player_damage"`
-	Healing            MetricStat `json:"healing"`
-	KillsPlusAssists   MetricStat `json:"kills_plus_assists"`
-	Denies             MetricStat `json:"denies"`
+	TeammateHealing     MetricStat `json:"teammate_healing"`
+	SelfHealingPerMin   MetricStat `json:"self_healing_per_min"`
+	CritShotRate        MetricStat `json:"crit_shot_rate"`
+	PlayerDamage        MetricStat `json:"player_damage"`
+	Healing             MetricStat `json:"healing"`
+	KillsPlusAssists    MetricStat `json:"kills_plus_assists"`
+	Denies              MetricStat `json:"denies"`
 	NeutralDamagePerMin MetricStat `json:"neutral_damage_per_min"`
 }
 
 type Item struct {
-	ItemID    uint32 `json:"id"`
-	ClassName string `json:"class_name"`
-	Name      string `json:"name"`
+	ItemID       uint32 `json:"id"`
+	ClassName    string `json:"class_name"`
+	Name         string `json:"name"`
+	ItemSlotType string `json:"item_slot_type"`
+	Cost         uint32 `json:"cost"`
 }
 
 type HeroPerformance struct {
@@ -301,13 +303,13 @@ type PlayerOverview struct {
 }
 
 type PlayerProfile struct {
-	AccountID       uint32            `json:"account_id"`
-	MatchesSampled  int               `json:"matches_sampled"`
-	Overview        PlayerOverview    `json:"overview"`
-	Heroes          []HeroPerformance `json:"heroes"`
-	Lanes           []LanePerformance `json:"lanes"`
-	Awards          Awards            `json:"awards"`
-	FrequentPlayers []FrequentPlayer  `json:"frequent_players"`
+	AccountID       uint32               `json:"account_id"`
+	MatchesSampled  int                  `json:"matches_sampled"`
+	Overview        PlayerOverview       `json:"overview"`
+	Heroes          []HeroPerformance    `json:"heroes"`
+	Lanes           []LanePerformance    `json:"lanes"`
+	Awards          Awards               `json:"awards"`
+	FrequentPlayers []FrequentPlayer     `json:"frequent_players"`
 	RecentMatches   []PlayerMatchSummary `json:"recent_matches"`
 }
 
