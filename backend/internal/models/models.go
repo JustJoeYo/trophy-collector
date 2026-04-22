@@ -227,6 +227,7 @@ type Item struct {
 	ItemID       uint32 `json:"id"`
 	ClassName    string `json:"class_name"`
 	Name         string `json:"name"`
+	Type         string `json:"type"`
 	ItemSlotType string `json:"item_slot_type"`
 	Cost         uint32 `json:"cost"`
 }
