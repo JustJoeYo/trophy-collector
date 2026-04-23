@@ -237,7 +237,7 @@ export interface Item {
   item_slot_type: 'weapon' | 'vitality' | 'spirit' | ''
   item_tier: number
   cost: number
-  description: string
+  description: Record<string, unknown>
   is_active_item: boolean
   shopable: boolean
   image: string

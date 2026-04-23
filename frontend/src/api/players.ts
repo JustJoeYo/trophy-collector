@@ -27,10 +27,14 @@ export interface PlayerSearchResult {
   rank: number
   region: string
   badge_level: number
+  avatar_url: string
 }
 
 export const searchPlayers = (q: string) =>
   fetchJson<PlayerSearchResult[]>(`/api/v1/players/search?q=${encodeURIComponent(q)}`)
+
+export const resolveVanityURL = (name: string) =>
+  fetchJson<{ steam64: string }>(`/api/v1/players/resolve-vanity?name=${encodeURIComponent(name)}`)
 
 export const getPlayerAvatar = (id: number) =>
   fetchJson<{ avatar_url: string }>(`/api/v1/players/${id}/avatar`)

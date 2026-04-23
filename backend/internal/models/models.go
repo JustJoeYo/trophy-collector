@@ -52,6 +52,7 @@ type PlayerSearchResult struct {
 	Rank        int    `json:"rank"`
 	Region      string `json:"region"`
 	BadgeLevel  int    `json:"badge_level"`
+	AvatarURL   string `json:"avatar_url"`
 }
 
 type HeroStats struct {
@@ -239,7 +240,7 @@ type Item struct {
 	ItemSlotType string `json:"item_slot_type"`
 	ItemTier     int    `json:"item_tier"`
 	Cost         uint32 `json:"cost"`
-	Description  string `json:"description"`
+	Description  map[string]any `json:"description"`
 	IsActiveItem bool   `json:"is_active_item"`
 	Shopable     bool   `json:"shopable"`
 	Image        string `json:"image"`

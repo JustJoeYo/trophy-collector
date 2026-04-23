@@ -7,6 +7,42 @@ import (
 	"github.com/JustJoeYo/trophy-collector/internal/models"
 )
 
+func (db *DB) SearchPlayersByName(ctx context.Context, query string, limit int) ([]models.PlayerSearchResult, error) {
+	rows, err := db.pool.Query(ctx, `
+		SELECT account_id, steam_name, avatar_url
+		FROM players
+		WHERE steam_name ILIKE $1
+		  AND steam_name IS NOT NULL
+		ORDER BY total_matches DESC
+		LIMIT $2
+	`, "%"+query+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]models.PlayerSearchResult, 0)
+	for rows.Next() {
+		var id uint32
+		var name, avatar *string
+		if err := rows.Scan(&id, &name, &avatar); err != nil {
+			continue
+		}
+		r := models.PlayerSearchResult{
+			AccountID: id,
+			Region:    "DB",
+		}
+		if name != nil {
+			r.AccountName = *name
+		}
+		if avatar != nil {
+			r.AvatarURL = *avatar
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}
+
 func (db *DB) GetPlayerProfile(ctx context.Context, accountID uint32) (*models.PlayerProfile, error) {
 	rows, err := db.pool.Query(ctx, `
 		SELECT

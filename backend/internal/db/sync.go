@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/JustJoeYo/trophy-collector/internal/clients"
@@ -40,7 +43,7 @@ func (db *DB) SyncPlayer(ctx context.Context, client clients.DeadlockClient, acc
         accountID,
     ).Scan(&lastSynced)
 
-    limit := 50
+    limit := 500
     total := 0
     var minMatchID *uint64
 
@@ -69,16 +72,57 @@ func (db *DB) SyncPlayer(ctx context.Context, client clients.DeadlockClient, acc
         }
     }
 
+    steamName, avatarURL := fetchSteamProfile(ctx, accountID)
+
     _, err := db.pool.Exec(ctx, `
-        INSERT INTO players (account_id, last_synced_at, total_matches)
-        VALUES ($1, NOW(), $2)
+        INSERT INTO players (account_id, last_synced_at, total_matches, steam_name, avatar_url)
+        VALUES ($1, NOW(), $2, $3, $4)
         ON CONFLICT (account_id) DO UPDATE
         SET last_synced_at = NOW(),
-            total_matches = players.total_matches + $2
-    `, accountID, total)
+            total_matches = players.total_matches + $2,
+            steam_name = COALESCE($3, players.steam_name),
+            avatar_url = COALESCE($4, players.avatar_url)
+    `, accountID, total, steamName, avatarURL)
 
-    slog.Info("sync complete", "account_id", accountID, "new_matches", total)
+    slog.Info("sync complete", "account_id", accountID, "new_matches", total, "steam_name", steamName)
     return err
+}
+
+func fetchSteamProfile(ctx context.Context, accountID uint32) (name *string, avatar *string) {
+    steam64 := uint64(accountID) + 76561197960265728
+    url := fmt.Sprintf("https://steamcommunity.com/profiles/%d/?xml=1", steam64)
+
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return nil, nil
+    }
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil || resp.StatusCode != http.StatusOK {
+        return nil, nil
+    }
+    defer resp.Body.Close()
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, nil
+    }
+
+    var profile struct {
+        SteamID      string `xml:"steamID"`
+        AvatarMedium string `xml:"avatarMedium"`
+    }
+    if err := xml.Unmarshal(body, &profile); err != nil {
+        return nil, nil
+    }
+
+    if profile.SteamID != "" {
+        name = &profile.SteamID
+    }
+    if profile.AvatarMedium != "" {
+        avatar = &profile.AvatarMedium
+    }
+    return name, avatar
 }
 
 
@@ -101,20 +145,19 @@ func (db *DB) insertMatches(ctx context.Context, accountID uint32, matches []mod
         }
 
         for _, player := range match.Players {
-            if player.AccountID != accountID {
-                continue
-            }
+            won := player.Team == match.WinningTeam
             tag, err := tx.Exec(ctx, `
                 INSERT INTO player_matches
                 (account_id, match_id, hero_id, team, kills, deaths, assists, net_worth, last_hits, denies, player_level, assigned_lane, abandon_match_time_s, won)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 ON CONFLICT (account_id, match_id) DO NOTHING
-            `, accountID, match.MatchID, player.HeroID, player.Team, player.Kills, player.Deaths, player.Assists, player.NetWorth, player.LastHits, player.Denies, player.PlayerLevel, player.AssignedLane, player.AbandonMatchTimeS, player.Team == match.WinningTeam)
+            `, player.AccountID, match.MatchID, player.HeroID, player.Team, player.Kills, player.Deaths, player.Assists, player.NetWorth, player.LastHits, player.Denies, player.PlayerLevel, player.AssignedLane, player.AbandonMatchTimeS, won)
             if err != nil {
                 return 0, err
             }
-            inserted += int(tag.RowsAffected())
-            break
+            if player.AccountID == accountID {
+                inserted += int(tag.RowsAffected())
+            }
         }
     }
 
