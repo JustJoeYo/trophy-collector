@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Item, ItemStats } from '@/types'
 import { getItems, getItemStats } from '@/api/items'
+import './ItemsPage.css'
 
 type ItemWithStats = {
   item: Item
@@ -195,9 +196,35 @@ export default function ItemsPage() {
                 {rows.map((row) => (
                   <tr key={row.item.id}>
                     <td>
-                      <strong>{row.item.name}</strong>
+                      <div className="item-name-cell">
+                        {row.item.image ? (
+                          <img
+                            src={row.item.image}
+                            alt={`${row.item.name} icon`}
+                            className="item-icon"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="item-icon item-icon-fallback" aria-hidden="true">
+                            ?
+                          </span>
+                        )}
+                        <strong>{row.item.name}</strong>
+                      </div>
                     </td>
-                    <td>{typeof row.item.cost === 'number' ? row.item.cost.toLocaleString() : 'N/A'}</td>
+                    <td>
+                        <span className="item-cost">
+                          <img
+                            src="/souls.png"
+                            alt="Souls"
+                            className="souls-icon"
+                            loading="lazy"
+                          />
+                          <span className="item-cost-value">
+                            {typeof row.item.cost === 'number' ? row.item.cost.toLocaleString() : 'N/A'}
+                          </span>
+                        </span>
+                      </td>
                     <td>{pct(row.win_rate)}</td>
                     <td>{pct(row.pick_rate)}</td>
                     <td>{row.stats.matches}</td>
