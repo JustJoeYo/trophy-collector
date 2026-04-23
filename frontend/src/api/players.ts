@@ -21,6 +21,20 @@ export async function getPlayerProfile(id: string): Promise<ProfileResult> {
 export const getSyncStatus = (id: string) =>
   fetchJson<SyncStatus>(`/api/v1/players/${id}/sync-status`)
 
+export interface PlayerSearchResult {
+  account_name: string
+  account_id: number
+  rank: number
+  region: string
+  badge_level: number
+}
+
+export const searchPlayers = (q: string) =>
+  fetchJson<PlayerSearchResult[]>(`/api/v1/players/search?q=${encodeURIComponent(q)}`)
+
+export const getPlayerAvatar = (id: number) =>
+  fetchJson<{ avatar_url: string }>(`/api/v1/players/${id}/avatar`)
+
 export const getPlayerStats = (id: string, matches = 20) =>
   fetchJson<PlayerStats>(`/api/v1/players/${id}/stats?matches=${matches}`)
 

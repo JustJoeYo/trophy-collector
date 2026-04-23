@@ -46,6 +46,14 @@ type Leaderboard struct {
 	Entries []LeaderboardEntry `json:"entries"`
 }
 
+type PlayerSearchResult struct {
+	AccountName string `json:"account_name"`
+	AccountID   uint32 `json:"account_id"`
+	Rank        int    `json:"rank"`
+	Region      string `json:"region"`
+	BadgeLevel  int    `json:"badge_level"`
+}
+
 type HeroStats struct {
 	HeroID       uint32 `json:"hero_id"`
 	Wins         int    `json:"wins"`

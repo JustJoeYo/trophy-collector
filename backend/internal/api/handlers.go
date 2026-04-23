@@ -3,11 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -213,6 +216,52 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	h.cacheSet(r, cacheKey, stats, 5*time.Minute)
 	h.writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetPlayerAvatar(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := h.parseAccountID(w, r)
+	if !ok {
+		return
+	}
+
+	cacheKey := fmt.Sprintf("avatar:%d", accountID)
+	if h.cacheGet(r, w, cacheKey) {
+		return
+	}
+
+	steam64 := uint64(accountID) + 76561197960265728
+	xmlURL := fmt.Sprintf("https://steamcommunity.com/profiles/%d/?xml=1", steam64)
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, xmlURL, nil)
+	if err != nil {
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to build request"})
+		return
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		h.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to fetch steam profile"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to read response"})
+		return
+	}
+
+	var profile struct {
+		AvatarMedium string `xml:"avatarMedium"`
+	}
+	if err := xml.Unmarshal(body, &profile); err != nil || profile.AvatarMedium == "" {
+		h.writeJSON(w, http.StatusNotFound, map[string]string{"avatar_url": ""})
+		return
+	}
+
+	result := map[string]string{"avatar_url": profile.AvatarMedium}
+	h.cacheSet(r, cacheKey, result, 24*time.Hour)
+	h.writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) GetSyncStatus(w http.ResponseWriter, r *http.Request) {
@@ -547,6 +596,73 @@ func (h *Handler) GetActiveMatches(w http.ResponseWriter, r *http.Request) {
 
 	h.cacheSet(r, cacheKey, matches, 30*time.Second)
 	h.writeJSON(w, http.StatusOK, matches)
+}
+
+func (h *Handler) SearchPlayers(w http.ResponseWriter, r *http.Request) {
+	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+	if len(query) < 2 {
+		h.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "query must be at least 2 characters"})
+		return
+	}
+
+	cacheKey := "search:players:" + query
+	if h.cacheGet(r, w, cacheKey) {
+		return
+	}
+
+	regions := []string{"Europe", "NAmerica", "SAmerica", "Asia", "Oceania"}
+	type regionResult struct {
+		region  string
+		entries []models.LeaderboardEntry
+	}
+
+	resultsCh := make(chan regionResult, len(regions))
+	for _, region := range regions {
+		go func(reg string) {
+			lb, err := h.deadlock.GetLeaderboard(r.Context(), reg)
+			if err != nil || lb == nil {
+				resultsCh <- regionResult{reg, nil}
+				return
+			}
+			resultsCh <- regionResult{reg, lb.Entries}
+		}(region)
+	}
+
+	seen := map[uint32]bool{}
+	results := make([]models.PlayerSearchResult, 0, 10)
+
+	for range regions {
+		res := <-resultsCh
+		for _, entry := range res.entries {
+			if len(results) >= 10 {
+				break
+			}
+			if !strings.Contains(strings.ToLower(entry.AccountName), query) {
+				continue
+			}
+			if len(entry.PossibleAccountIDs) == 0 {
+				continue
+			}
+			id := entry.PossibleAccountIDs[0]
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			results = append(results, models.PlayerSearchResult{
+				AccountName: entry.AccountName,
+				AccountID:   id,
+				Rank:        entry.Rank,
+				Region:      res.region,
+				BadgeLevel:  entry.BadgeLevel,
+			})
+		}
+		if len(results) >= 10 {
+			break
+		}
+	}
+
+	h.cacheSet(r, cacheKey, results, 5*time.Minute)
+	h.writeJSON(w, http.StatusOK, results)
 }
 
 func (h *Handler) GetHeroes(w http.ResponseWriter, r *http.Request) {
