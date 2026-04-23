@@ -1,61 +1,201 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { searchPlayers, resolveVanityURL, getPlayerAvatar } from '@/api/players'
+import type { PlayerSearchResult } from '@/api/players'
 
 const STEAM64_REGEX = /^7656119\d{10}$/
-const STEAM2_REGEX = /^STEAM_[0-5]:[01]:\d+$/i
-const STEAM3_REGEX = /^\[U:1:\d+\]$/
+const STEAM2_REGEX  = /^STEAM_[0-5]:[01]:\d+$/i
+const STEAM3_REGEX  = /^\[U:1:\d+\]$/
 const STEAM32_REGEX = /^\d{1,10}$/
-const PROFILE_URL_REGEX = /steamcommunity\.com\/profiles\/(\d+)/
-const CUSTOM_URL_REGEX = /steamcommunity\.com\/id\/[\w-]+/
+const PROFILES_URL  = /steamcommunity\.com\/profiles\/(\d+)/
+const ID_URL        = /steamcommunity\.com\/id\/([\w-]+)/
 
-function extractSteamId(input: string): string | null {
-  const trimmed = input.trim()
+function avatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  const h = Math.abs(hash) % 360
+  return `hsl(${h}, 40%, 28%)`
+}
 
-  const profileMatch = trimmed.match(PROFILE_URL_REGEX)
-  if (profileMatch) return profileMatch[1]
-
-  if (CUSTOM_URL_REGEX.test(trimmed)) return null
-
-  if (
-    STEAM64_REGEX.test(trimmed) ||
-    STEAM2_REGEX.test(trimmed) ||
-    STEAM3_REGEX.test(trimmed) ||
-    STEAM32_REGEX.test(trimmed)
-  ) {
-    return trimmed
-  }
-
+function extractDirectId(input: string): string | null {
+  const t = input.trim()
+  const m = t.match(PROFILES_URL)
+  if (m) return m[1]
+  if (STEAM64_REGEX.test(t) || STEAM2_REGEX.test(t) || STEAM3_REGEX.test(t) || STEAM32_REGEX.test(t)) return t
   return null
 }
 
-export default function PlayerSearch() {
-  const [query, setQuery] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const navigate = useNavigate()
+function extractVanityName(input: string): string | null {
+  const m = input.trim().match(ID_URL)
+  return m ? m[1] : null
+}
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+function isSteamIdLike(input: string): boolean {
+  const t = input.trim()
+  return STEAM64_REGEX.test(t) || STEAM2_REGEX.test(t) || STEAM3_REGEX.test(t) ||
+    STEAM32_REGEX.test(t) || PROFILES_URL.test(t) || ID_URL.test(t)
+}
+
+export default function PlayerSearch() {
+  const [query, setQuery]     = useState('')
+  const [results, setResults] = useState<PlayerSearchResult[]>([])
+  const [avatarMap, setAvatarMap] = useState<Record<number, string>>({})
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen]       = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+  const navigate = useNavigate()
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapRef  = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  function fetchAvatarsForResults(data: PlayerSearchResult[]) {
+    const missing = data.filter(r => !r.avatar_url)
+    missing.forEach(r => {
+      getPlayerAvatar(r.account_id)
+        .then(res => {
+          if (res.avatar_url) setAvatarMap(prev => ({ ...prev, [r.account_id]: res.avatar_url }))
+        })
+        .catch(() => {})
+    })
+  }
+
+  function handleChange(value: string) {
+    setQuery(value)
+    setOpen(false)
+    setResults([])
     setError(null)
-    const id = extractSteamId(query)
-    if (!id) {
-      setError('Custom URL profiles are not supported — paste your Steam64 ID, Steam32 ID, STEAM_0:x:y, [U:1:x], or a steamcommunity.com/profiles/ link.')
+    setAvatarMap({})
+
+    if (debounce.current) clearTimeout(debounce.current)
+
+    const trimmed = value.trim()
+    if (!trimmed || isSteamIdLike(trimmed) || trimmed.length < 2) return
+
+    debounce.current = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const data = await searchPlayers(trimmed)
+        setResults(data)
+        setOpen(data.length > 0)
+        fetchAvatarsForResults(data)
+      } catch {
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 300)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = query.trim()
+    if (!trimmed) return
+
+    const vanity = extractVanityName(trimmed)
+    if (vanity) {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await resolveVanityURL(vanity)
+        setOpen(false)
+        navigate(`/player/${encodeURIComponent(res.steam64)}`)
+      } catch {
+        setError('Could not resolve that profile URL. Try pasting your Steam64 ID instead.')
+      } finally {
+        setLoading(false)
+      }
       return
     }
-    navigate(`/player/${encodeURIComponent(id)}`)
+
+    const direct = extractDirectId(trimmed)
+    if (direct) {
+      setOpen(false)
+      navigate(`/player/${encodeURIComponent(direct)}`)
+      return
+    }
+
+    if (results.length === 1) { selectResult(results[0]); return }
+    if (results.length > 1)   { setOpen(true); return }
+
+    setLoading(true)
+    try {
+      const data = await searchPlayers(trimmed)
+      if (data.length === 1) {
+        selectResult(data[0])
+      } else {
+        setResults(data)
+        setOpen(data.length > 0)
+        fetchAvatarsForResults(data)
+      }
+    } catch {
+      setError('No players found.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function selectResult(result: PlayerSearchResult) {
+    setOpen(false)
+    setQuery(result.account_name)
+    navigate(`/player/${result.account_id}`)
+  }
+
+  function getAvatar(r: PlayerSearchResult): string {
+    return r.avatar_url || avatarMap[r.account_id] || ''
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="player-search">Search by Steam ID</label>
-      <input
-        id="player-search"
-        type="text"
-        value={query}
-        onChange={e => { setQuery(e.target.value); setError(null) }}
-        placeholder="Steam64, Steam32, STEAM_0:x:y, [U:1:x], or profile URL"
-      />
-      <button type="submit">Search</button>
-      {error && <p role="alert">{error}</p>}
-    </form>
+    <div className="ps-wrap" ref={wrapRef}>
+      <form className="ps-form" onSubmit={handleSubmit}>
+        <label htmlFor="player-search">Search by Steam ID</label>
+        <div className="ps-input-row">
+          <input
+            id="player-search"
+            type="text"
+            autoComplete="off"
+            value={query}
+            onChange={e => handleChange(e.target.value)}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            placeholder="Steam ID, profile link, or player name"
+          />
+          <button type="submit">{loading ? '…' : 'Search'}</button>
+        </div>
+      </form>
+      {error && <p className="ps-error" role="alert">{error}</p>}
+      {open && results.length > 0 && (
+        <ul className="ps-dropdown" role="listbox">
+          {results.map(r => {
+            const avatar = getAvatar(r)
+            return (
+              <li
+                key={r.account_id}
+                className="ps-dropdown-item"
+                role="option"
+                onMouseDown={() => selectResult(r)}
+              >
+                {avatar ? (
+                  <img className="ps-dropdown-avatar ps-dropdown-avatar--img" src={avatar} alt="" aria-hidden="true" />
+                ) : (
+                  <span className="ps-dropdown-avatar" style={{ background: avatarColor(r.account_name) }} aria-hidden="true">
+                    {r.account_name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="ps-dropdown-info">
+                  <span className="ps-dropdown-name">{r.account_name}</span>
+                  <span className="ps-dropdown-meta">{r.region !== 'DB' ? `${r.region} · Rank ${r.rank}` : 'Previously searched'}</span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

@@ -4,11 +4,17 @@ import "context"
 
 const schema = `
 CREATE TABLE IF NOT EXISTS players (
-    account_id  BIGINT PRIMARY KEY,
+    account_id     BIGINT PRIMARY KEY,
     last_synced_at TIMESTAMPTZ,
     total_matches  INT DEFAULT 0,
+    steam_name     TEXT,
+    avatar_url     TEXT,
     created_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE players ADD COLUMN IF NOT EXISTS steam_name TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+CREATE INDEX IF NOT EXISTS idx_players_steam_name ON players(steam_name);
 
 CREATE TABLE IF NOT EXISTS matches (
     match_id      BIGINT PRIMARY KEY,

@@ -1,54 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --accent: #c8a84b;
+  --accent-dim: rgba(200, 168, 75, 0.12);
+  --accent-glow: rgba(200, 168, 75, 0.25);
+  --surface: #0f0f0f;
+  --border: #1e1e1e;
+  --muted: #6b7280;
+}
+
 body {
   margin: 0;
   background: #0a0a0a;
   color: #e5e5e5;
+  font-family: system-ui, sans-serif;
 }
 
-.site-nav {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: #0a0a0a;
-  border-bottom: 1px solid #2a2a2a;
-}
-
-.site-nav-inner {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.site-title {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.site-nav-links {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  gap: 0.75rem;
-}
-
-.site-nav-links a {
-  color: #e5e5e5;
-  text-decoration: none;
-  padding: 0.35rem 0.6rem;
-  border-radius: 0.35rem;
-}
-
-.site-nav-links a:hover {
-  background: #1d1d1d5b;
-}
-
-.site-nav-links a.active {
-  background: #2a2a2a;
-}
 
 main {
   max-width: 960px;
@@ -220,3 +187,4 @@ main {
     width: 100%;
   }
 }
+

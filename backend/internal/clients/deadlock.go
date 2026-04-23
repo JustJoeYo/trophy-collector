@@ -51,7 +51,7 @@ func NewDeadlockClient(baseURL string, assetsURL string) DeadlockClient {
 	return &deadlockClient{
 		baseURL:   baseURL,
 		assetsURL: assetsURL,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
