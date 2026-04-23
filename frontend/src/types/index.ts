@@ -233,6 +233,14 @@ export interface Item {
   id: number
   class_name: string
   name: string
+  type: string
+  item_slot_type: 'weapon' | 'vitality' | 'spirit' | ''
+  item_tier: number
+  cost: number
+  description: string
+  is_active_item: boolean
+  shopable: boolean
+  image: string
 }
 
 export interface ItemStats {

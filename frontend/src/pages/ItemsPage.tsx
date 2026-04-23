@@ -50,6 +50,13 @@ function toItemWithStats(items: Item[], stats: ItemStats[]): ItemWithStats[] {
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
+type ItemCategoryLabel = 'All' | 'Weapon' | 'Vitality' | 'Spirit'
+
+const CATEGORY_TO_SLOT: Record<Exclude<ItemCategoryLabel, 'All'>, Item['item_slot_type']> = {
+  Weapon: 'weapon',
+  Vitality: 'vitality',
+  Spirit: 'spirit',
+}
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([])
@@ -94,16 +101,22 @@ export default function ItemsPage() {
   }, [])
 
   const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
+  const [category, setCategory] = useState<ItemCategoryLabel>('All')
 
   const rows = useMemo(() => {
-    const data = toItemWithStats(items, stats)
+    let data = toItemWithStats(items, stats)
+
+    if (category !== 'All') {
+      const selectedSlotType = CATEGORY_TO_SLOT[category]
+      data = data.filter((row) => row.item.item_slot_type === selectedSlotType)
+    }
 
     if (sortBy === 'pick_rate') {
       return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
     }
 
     return [...data].sort((a, b) => b.win_rate - a.win_rate)
-  }, [items, stats, sortBy])
+  }, [items, stats, sortBy, category])
 
   return (
     <main className="items-page">
@@ -131,6 +144,20 @@ export default function ItemsPage() {
           <strong>{rows.reduce((sum,row) => sum + row.stats.matches, 0).toLocaleString()}</strong>
         </article>
       </section>
+      <section className="items-controls" aria-label="Item category filters"> 
+        <div className="items-category-group" role="group" aria-label="Filter items by category">
+          {(['All', 'Weapon', 'Vitality', 'Spirit'] as const).map((label) => (
+            <button
+              key={label}
+              type="button"
+              className={category === label ? 'items-category-button active' : 'items-category-button'}
+              onClick={() => setCategory(label)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="items-controls" aria-label="Sort controls">
         <label className="items-controls-label" htmlFor="item-sort">Sort by</label>
         <select
@@ -157,6 +184,7 @@ export default function ItemsPage() {
               <thead>
                 <tr>
                   <th>Item</th>
+                  <th>Cost</th>
                   <th>Win Rate</th>
                   <th>Pick Rate</th>
                   <th>Matches</th>
@@ -169,6 +197,7 @@ export default function ItemsPage() {
                     <td>
                       <strong>{row.item.name}</strong>
                     </td>
+                    <td>{typeof row.item.cost === 'number' ? row.item.cost.toLocaleString() : 'N/A'}</td>
                     <td>{pct(row.win_rate)}</td>
                     <td>{pct(row.pick_rate)}</td>
                     <td>{row.stats.matches}</td>
