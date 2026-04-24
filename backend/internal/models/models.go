@@ -233,17 +233,21 @@ type PlayerMetrics struct {
 }
 
 type Item struct {
-	ItemID       uint32 `json:"id"`
-	ClassName    string `json:"class_name"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	ItemSlotType string `json:"item_slot_type"`
-	ItemTier     int    `json:"item_tier"`
-	Cost         uint32 `json:"cost"`
+	ItemID       uint32         `json:"id"`
+	ClassName    string         `json:"class_name"`
+	Name         string         `json:"name"`
+	Type         string         `json:"type"`
+	ItemSlotType string         `json:"item_slot_type"`
+	ItemTier     int            `json:"item_tier"`
+	Cost         uint32         `json:"cost"`
 	Description  map[string]any `json:"description"`
-	IsActiveItem bool   `json:"is_active_item"`
-	Shopable     bool   `json:"shopable"`
-	Image        string `json:"image"`
+	IsActiveItem bool           `json:"is_active_item"`
+	Shopable     bool           `json:"shopable"`
+	Image        string         `json:"shop_image"`
+}
+
+type Image struct {
+	GoldSVG string `json:"gold_svg"`
 }
 
 type HeroPerformance struct {

@@ -28,6 +28,7 @@ type DeadlockClient interface {
 
 	GetItems(ctx context.Context) ([]models.Item, error)
 	GetItemStats(ctx context.Context) ([]models.ItemStats, error)
+	GetImage(ctx context.Context) ([]models.Image, error)
 
 	GetLeaderboard(ctx context.Context, region string) (*models.Leaderboard, error)
 	GetHeroLeaderboard(ctx context.Context, region string, heroID uint32) (*models.Leaderboard, error)
@@ -49,8 +50,8 @@ type deadlockClient struct {
 
 func NewDeadlockClient(baseURL string, assetsURL string) DeadlockClient {
 	return &deadlockClient{
-		baseURL:   baseURL,
-		assetsURL: assetsURL,
+		baseURL:    baseURL,
+		assetsURL:  assetsURL,
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 	}
 }
@@ -209,6 +210,15 @@ func (c *deadlockClient) GetItemStats(ctx context.Context) ([]models.ItemStats, 
 		return nil, fmt.Errorf("GetItemStats: %w", err)
 	}
 	return stats, nil
+}
+
+func (c *deadlockClient) GetImage(ctx context.Context) ([]models.Image, error) {
+	url := fmt.Sprintf("%s/v1/images", c.assetsURL)
+	var image models.Image
+	if err := c.fetch(ctx, url, &image); err != nil {
+		return nil, fmt.Errorf("GetImage: %w", err)
+	}
+	return []models.Image{image}, nil
 }
 
 func (c *deadlockClient) GetLeaderboard(ctx context.Context, region string) (*models.Leaderboard, error) {

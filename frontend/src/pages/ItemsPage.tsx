@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Item, ItemStats } from '@/types'
-import { getItems, getItemStats } from '@/api/items'
+import type { Image, Item, ItemStats } from '@/types'
+import { getImage, getItems, getItemStats } from '@/api/items'
 import './ItemsPage.css'
 
 type ItemWithStats = {
@@ -62,6 +62,7 @@ const CATEGORY_TO_SLOT: Record<Exclude<ItemCategoryLabel, 'All'>, Item['item_slo
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([])
   const [stats, setStats] = useState<ItemStats[]>([])
+  const [goldSvg, setGoldSvg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +74,11 @@ export default function ItemsPage() {
         setLoading(true)
         setError(null)
 
-        const [itemsRes, statsRes] = await Promise.all([getItems(), getItemStats()])
+        const [itemsRes, statsRes, imagesRes] = await Promise.all([
+          getItems(),
+          getItemStats(),
+          getImage(),
+        ])
 
         if (!active) {
           return
@@ -81,6 +86,9 @@ export default function ItemsPage() {
 
         setItems(itemsRes)
         setStats(statsRes)
+
+        const goldIcon = imagesRes.find((img: Image) => typeof img.gold_svg == 'string' && img.gold_svg.length > 0)?.gold_svg ?? null
+        setGoldSvg(goldIcon)
       } catch (err) {
         if (!active) {
           return
@@ -121,11 +129,13 @@ export default function ItemsPage() {
 
   return (
     <main className="items-page">
-      <section>
-        <p className="eyebrow">Items</p>
-        <h1>Item win and pick rates</h1>
+      <section className="items-hero">
+        <h1 className="items-title">
+          <span className="items-title-top">Item</span>
+          <span className="items-title-bottom">Trends</span>
+        </h1>
         <p className="page-intro">
-          See items that are winning the most games and how popular they are among players. The win and pick rates are calculated based on the most recent bucket of matches for each item, which includes matches from the last few weeks.
+          See which items are performing best by win and pick rate across recent matches.
         </p>
       </section>
       
@@ -171,7 +181,7 @@ export default function ItemsPage() {
           <option value="pick_rate">Pick rate</option>
         </select>
       </section>
-      <section>
+      <section className="items-results">
         {loading ? <p className="status-message">Loading items...</p> : null}
         {error ? <p className="status-message status-error">{error}</p> : null}
 
@@ -197,9 +207,9 @@ export default function ItemsPage() {
                   <tr key={row.item.id}>
                     <td>
                       <div className="item-name-cell">
-                        {row.item.image ? (
+                        {row.item.shop_image ? (
                           <img
-                            src={row.item.image}
+                            src={row.item.shop_image}
                             alt={`${row.item.name} icon`}
                             className="item-icon"
                             loading="lazy"
@@ -215,7 +225,7 @@ export default function ItemsPage() {
                     <td>
                         <span className="item-cost">
                           <img
-                            src="/souls.png"
+                            src={goldSvg ?? '/Souls.png'}
                             alt="Souls"
                             className="souls-icon"
                             loading="lazy"

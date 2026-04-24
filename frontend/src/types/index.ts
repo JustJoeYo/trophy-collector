@@ -240,7 +240,11 @@ export interface Item {
   description: Record<string, unknown>
   is_active_item: boolean
   shopable: boolean
-  image?: string
+  shop_image?: string
+}
+
+export interface Image {
+  gold_svg: string
 }
 
 export interface ItemStats {

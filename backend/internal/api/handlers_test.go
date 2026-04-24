@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/JustJoeYo/trophy-collector/internal/cache"
 	"github.com/JustJoeYo/trophy-collector/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
 func newRouter(client *mockDeadlockClient) *chi.Mux {
@@ -21,26 +21,27 @@ func newRouter(client *mockDeadlockClient) *chi.Mux {
 }
 
 type mockDeadlockClient struct {
-	heroes        []models.Hero
-	items         []models.Item
-	matches       []models.Match
-	leaderboard   *models.Leaderboard
-	heroStats     []models.HeroStats
-	heroBanStats  []models.HeroBanStats
+	heroes         []models.Hero
+	items          []models.Item
+	matches        []models.Match
+	leaderboard    *models.Leaderboard
+	heroStats      []models.HeroStats
+	heroBanStats   []models.HeroBanStats
 	heroBuildStats []models.HeroBuildStats
-	heroCounters  []models.HeroCounterStats
-	heroSynergies []models.HeroSynergyStats
-	abilityStats  []models.AbilityOrderStats
+	heroCounters   []models.HeroCounterStats
+	heroSynergies  []models.HeroSynergyStats
+	abilityStats   []models.AbilityOrderStats
 	heroScoreboard []models.HeroScoreboard
-	itemStats     []models.ItemStats
-	scoreboard    []models.PlayerScoreboard
-	gameStats     []models.GameStats
-	kdStats       []models.KillDeathStats
-	badgeDist     []models.BadgeDistribution
-	builds        []models.Build
-	ranks         []models.Rank
-	metrics       *models.PlayerMetrics
-	err           error
+	itemStats      []models.ItemStats
+	scoreboard     []models.PlayerScoreboard
+	gameStats      []models.GameStats
+	kdStats        []models.KillDeathStats
+	badgeDist      []models.BadgeDistribution
+	builds         []models.Build
+	ranks          []models.Rank
+	metrics        *models.PlayerMetrics
+	image          []models.Image
+	err            error
 }
 
 func (m *mockDeadlockClient) GetPlayerMatches(ctx context.Context, accountID uint32, limit int) ([]models.Match, error) {
@@ -81,6 +82,9 @@ func (m *mockDeadlockClient) GetItems(ctx context.Context) ([]models.Item, error
 }
 func (m *mockDeadlockClient) GetItemStats(ctx context.Context) ([]models.ItemStats, error) {
 	return m.itemStats, m.err
+}
+func (m *mockDeadlockClient) GetImage(ctx context.Context) ([]models.Image, error) {
+	return m.image, m.err
 }
 func (m *mockDeadlockClient) GetLeaderboard(ctx context.Context, region string) (*models.Leaderboard, error) {
 	return m.leaderboard, m.err
