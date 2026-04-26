@@ -3,7 +3,9 @@ package clients
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -204,9 +206,12 @@ func (c *deadlockClient) GetItems(ctx context.Context) ([]models.Item, error) {
 }
 
 func (c *deadlockClient) GetItemStats(ctx context.Context) ([]models.ItemStats, error) {
-	url := fmt.Sprintf("%s/v1/analytics/item-stats", c.baseURL)
+	url := fmt.Sprintf("%s/v1/analytics/item-stats/", c.baseURL)
 	var stats []models.ItemStats
 	if err := c.fetch(ctx, url, &stats); err != nil {
+		if errors.Is(err, io.EOF) {
+			return []models.ItemStats{}, nil
+		}
 		return nil, fmt.Errorf("GetItemStats: %w", err)
 	}
 	return stats, nil
