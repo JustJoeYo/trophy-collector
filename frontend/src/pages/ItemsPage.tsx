@@ -52,11 +52,19 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
 type ItemCategoryLabel = 'All' | 'Weapon' | 'Vitality' | 'Spirit'
+type CostTierLabel = 'I' | 'II' | 'III' | 'IV'
 
 const CATEGORY_TO_SLOT: Record<Exclude<ItemCategoryLabel, 'All'>, Item['item_slot_type']> = {
   Weapon: 'weapon',
   Vitality: 'vitality',
   Spirit: 'spirit',
+}
+
+const COST_TIER_RANGES: Record<CostTierLabel, {min: number; max: number}> = {
+  I: { min:800, max:1600 },
+  II: { min:1600, max:3200 },
+  III: { min:3200, max:6400 },
+  IV: { min:6400, max: Infinity },
 }
 
 export default function ItemsPage() {
@@ -65,6 +73,39 @@ export default function ItemsPage() {
   const [goldSvg, setGoldSvg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
+  const [category, setCategory] = useState<ItemCategoryLabel>('All')
+  const [selectedTiers, setSelectedTiers] = useState<CostTierLabel[]>([])
+
+  const rows = useMemo(() => {
+    let data = toItemWithStats(items, stats)
+
+    if (category !== 'All') {
+      const selectedSlotType = CATEGORY_TO_SLOT[category]
+      data = data.filter((row) => row.item.item_slot_type === selectedSlotType)
+    }
+
+    if (selectedTiers.length > 0) {
+      data = data.filter((row) => {
+        const cost = row.item.cost
+        if (typeof cost !== 'number') {
+          return false
+        }
+
+        return selectedTiers.some((tier) => {
+          const range = COST_TIER_RANGES[tier]
+          return cost >= range.min && cost < range.max
+        })
+      })
+    }
+
+    if (sortBy === 'pick_rate') {
+      return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
+    }
+
+    return [...data].sort((a, b) => b.win_rate - a.win_rate)
+  }, [items, stats, sortBy, category, selectedTiers])
 
   useEffect(() => {
     let active = true
@@ -108,24 +149,6 @@ export default function ItemsPage() {
       active = false
     }
   }, [])
-
-  const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
-  const [category, setCategory] = useState<ItemCategoryLabel>('All')
-
-  const rows = useMemo(() => {
-    let data = toItemWithStats(items, stats)
-
-    if (category !== 'All') {
-      const selectedSlotType = CATEGORY_TO_SLOT[category]
-      data = data.filter((row) => row.item.item_slot_type === selectedSlotType)
-    }
-
-    if (sortBy === 'pick_rate') {
-      return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
-    }
-
-    return [...data].sort((a, b) => b.win_rate - a.win_rate)
-  }, [items, stats, sortBy, category])
 
   return (
     <main className="items-page">
@@ -180,6 +203,24 @@ export default function ItemsPage() {
           <option value="win_rate">Win rate</option>
           <option value="pick_rate">Pick rate</option>
         </select>
+
+        <div className="items-tier-group" role="group" aria-label="Filter items by cost tier">
+          {(['I','II','III','IV'] as const).map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              className={selectedTiers.includes(tier) ? 'items-tier-button active' : 'items-tier-button'}
+              onClick={() => 
+                setSelectedTiers((prev) =>
+                  prev.includes(tier) ? prev.filter((t) => t != tier) : [...prev, tier]
+          )
+        }
+        aria-pressed={selectedTiers.includes(tier)}
+            >
+              {tier}
+            </button>
+          ))}
+        </div>
       </section>
       <section className="items-results">
         {loading ? <p className="status-message">Loading items...</p> : null}
@@ -198,8 +239,6 @@ export default function ItemsPage() {
                   <th>Cost</th>
                   <th>Win Rate</th>
                   <th>Pick Rate</th>
-                  <th>Matches</th>
-                  <th>Players</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,8 +276,6 @@ export default function ItemsPage() {
                       </td>
                     <td>{pct(row.win_rate)}</td>
                     <td>{pct(row.pick_rate)}</td>
-                    <td>{row.stats.matches}</td>
-                    <td>{row.stats.players}</td>
                   </tr>
                 ))}
               </tbody>
