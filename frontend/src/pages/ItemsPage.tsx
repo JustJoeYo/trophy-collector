@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Item, ItemStats } from '@/types'
-import { getItems, getItemStats } from '@/api/items'
+import type { Image, Item, ItemStats } from '@/types'
+import { getImage, getItems, getItemStats } from '@/api/items'
+import './ItemsPage.css'
 
 type ItemWithStats = {
   item: Item
@@ -51,6 +52,7 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
 type ItemCategoryLabel = 'All' | 'Weapon' | 'Vitality' | 'Spirit'
+type CostTierLabel = 'I' | 'II' | 'III' | 'IV'
 
 const CATEGORY_TO_SLOT: Record<Exclude<ItemCategoryLabel, 'All'>, Item['item_slot_type']> = {
   Weapon: 'weapon',
@@ -58,11 +60,52 @@ const CATEGORY_TO_SLOT: Record<Exclude<ItemCategoryLabel, 'All'>, Item['item_slo
   Spirit: 'spirit',
 }
 
+const COST_TIER_RANGES: Record<CostTierLabel, {min: number; max: number}> = {
+  I: { min:800, max:1600 },
+  II: { min:1600, max:3200 },
+  III: { min:3200, max:6400 },
+  IV: { min:6400, max: Infinity },
+}
+
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([])
   const [stats, setStats] = useState<ItemStats[]>([])
+  const [goldSvg, setGoldSvg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
+  const [category, setCategory] = useState<ItemCategoryLabel>('All')
+  const [selectedTiers, setSelectedTiers] = useState<CostTierLabel[]>([])
+
+  const rows = useMemo(() => {
+    let data = toItemWithStats(items, stats)
+
+    if (category !== 'All') {
+      const selectedSlotType = CATEGORY_TO_SLOT[category]
+      data = data.filter((row) => row.item.item_slot_type === selectedSlotType)
+    }
+
+    if (selectedTiers.length > 0) {
+      data = data.filter((row) => {
+        const cost = row.item.cost
+        if (typeof cost !== 'number') {
+          return false
+        }
+
+        return selectedTiers.some((tier) => {
+          const range = COST_TIER_RANGES[tier]
+          return cost >= range.min && cost < range.max
+        })
+      })
+    }
+
+    if (sortBy === 'pick_rate') {
+      return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
+    }
+
+    return [...data].sort((a, b) => b.win_rate - a.win_rate)
+  }, [items, stats, sortBy, category, selectedTiers])
 
   useEffect(() => {
     let active = true
@@ -72,7 +115,11 @@ export default function ItemsPage() {
         setLoading(true)
         setError(null)
 
-        const [itemsRes, statsRes] = await Promise.all([getItems(), getItemStats()])
+        const [itemsRes, statsRes, imagesRes] = await Promise.all([
+          getItems(),
+          getItemStats(),
+          getImage(),
+        ])
 
         if (!active) {
           return
@@ -80,6 +127,9 @@ export default function ItemsPage() {
 
         setItems(itemsRes)
         setStats(statsRes)
+
+        const goldIcon = imagesRes.find((img: Image) => typeof img.gold_svg == 'string' && img.gold_svg.length > 0)?.gold_svg ?? null
+        setGoldSvg(goldIcon)
       } catch (err) {
         if (!active) {
           return
@@ -100,31 +150,15 @@ export default function ItemsPage() {
     }
   }, [])
 
-  const [sortBy, setSortBy] = useState<'win_rate' | 'pick_rate'>('win_rate')
-  const [category, setCategory] = useState<ItemCategoryLabel>('All')
-
-  const rows = useMemo(() => {
-    let data = toItemWithStats(items, stats)
-
-    if (category !== 'All') {
-      const selectedSlotType = CATEGORY_TO_SLOT[category]
-      data = data.filter((row) => row.item.item_slot_type === selectedSlotType)
-    }
-
-    if (sortBy === 'pick_rate') {
-      return [...data].sort((a, b) => b.pick_rate - a.pick_rate)
-    }
-
-    return [...data].sort((a, b) => b.win_rate - a.win_rate)
-  }, [items, stats, sortBy, category])
-
   return (
     <main className="items-page">
-      <section>
-        <p className="eyebrow">Items</p>
-        <h1>Item win and pick rates</h1>
+      <section className="items-hero">
+        <h1 className="items-title">
+          <span className="items-title-top">Item</span>
+          <span className="items-title-bottom">Trends</span>
+        </h1>
         <p className="page-intro">
-          See items that are winning the most games and how popular they are among players. The win and pick rates are calculated based on the most recent bucket of matches for each item, which includes matches from the last few weeks.
+          See which items are performing best by win and pick rate across recent matches.
         </p>
       </section>
       
@@ -169,8 +203,26 @@ export default function ItemsPage() {
           <option value="win_rate">Win rate</option>
           <option value="pick_rate">Pick rate</option>
         </select>
+
+        <div className="items-tier-group" role="group" aria-label="Filter items by cost tier">
+          {(['I','II','III','IV'] as const).map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              className={selectedTiers.includes(tier) ? 'items-tier-button active' : 'items-tier-button'}
+              onClick={() => 
+                setSelectedTiers((prev) =>
+                  prev.includes(tier) ? prev.filter((t) => t != tier) : [...prev, tier]
+          )
+        }
+        aria-pressed={selectedTiers.includes(tier)}
+            >
+              {tier}
+            </button>
+          ))}
+        </div>
       </section>
-      <section>
+      <section className="items-results">
         {loading ? <p className="status-message">Loading items...</p> : null}
         {error ? <p className="status-message status-error">{error}</p> : null}
 
@@ -187,21 +239,43 @@ export default function ItemsPage() {
                   <th>Cost</th>
                   <th>Win Rate</th>
                   <th>Pick Rate</th>
-                  <th>Matches</th>
-                  <th>Players</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.item.id}>
                     <td>
-                      <strong>{row.item.name}</strong>
+                      <div className="item-name-cell">
+                        {row.item.shop_image ? (
+                          <img
+                            src={row.item.shop_image}
+                            alt={`${row.item.name} icon`}
+                            className="item-icon"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="item-icon item-icon-fallback" aria-hidden="true">
+                            ?
+                          </span>
+                        )}
+                        <strong>{row.item.name}</strong>
+                      </div>
                     </td>
-                    <td>{typeof row.item.cost === 'number' ? row.item.cost.toLocaleString() : 'N/A'}</td>
+                    <td>
+                        <span className="item-cost">
+                          <img
+                            src={goldSvg ?? '/Souls.png'}
+                            alt="Souls"
+                            className="souls-icon"
+                            loading="lazy"
+                          />
+                          <span className="item-cost-value">
+                            {typeof row.item.cost === 'number' ? row.item.cost.toLocaleString() : 'N/A'}
+                          </span>
+                        </span>
+                      </td>
                     <td>{pct(row.win_rate)}</td>
                     <td>{pct(row.pick_rate)}</td>
-                    <td>{row.stats.matches}</td>
-                    <td>{row.stats.players}</td>
                   </tr>
                 ))}
               </tbody>

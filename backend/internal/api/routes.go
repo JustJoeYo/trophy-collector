@@ -32,6 +32,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 	r.Get("/api/v1/items", h.GetItems)
 	r.Get("/api/v1/items/stats", h.GetItemStats)
+	r.Get("/api/v1/images", h.GetImage)
 
 	r.Get("/api/v1/leaderboard/{region}", h.GetLeaderboard)
 	r.Get("/api/v1/leaderboard/{region}/{heroId}", h.GetHeroLeaderboard)

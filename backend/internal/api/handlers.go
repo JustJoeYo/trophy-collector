@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/JustJoeYo/trophy-collector/internal/cache"
 	"github.com/JustJoeYo/trophy-collector/internal/clients"
 	"github.com/JustJoeYo/trophy-collector/internal/db"
 	"github.com/JustJoeYo/trophy-collector/internal/models"
 	"github.com/JustJoeYo/trophy-collector/internal/steamid"
+	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
@@ -894,6 +894,23 @@ func (h *Handler) GetItemStats(w http.ResponseWriter, r *http.Request) {
 
 	h.cacheSet(r, cacheKey, stats, 10*time.Minute)
 	h.writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
+	cacheKey := "images"
+	if h.cacheGet(r, w, cacheKey) {
+		return
+	}
+
+	images, err := h.deadlock.GetImage(r.Context())
+	if err != nil {
+		slog.Error("failed to fetch images", "error", err)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch images"})
+		return
+	}
+
+	h.cacheSet(r, cacheKey, images, 24*time.Hour)
+	h.writeJSON(w, http.StatusOK, images)
 }
 
 func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
